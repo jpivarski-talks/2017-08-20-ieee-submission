@@ -70,7 +70,7 @@
 % manually specify the path to it like:
 % \documentclass[conference]{../sty/IEEEtran}
 
-
+\usepackage{minted}
 
 
 
@@ -408,13 +408,13 @@ peter.elmer@cern.ch}
 
 
 \begin{abstract}
-Big Data query systems like Apache Drill represent hierarchical data in a columnar format for fast, selective access, and perform calculations directly on the columnar data without row materialization, avoiding runtime costs.
+Big Data query systems represent data in a columnar format for fast, selective access, and in some cases (e.g.\ Apache Drill), perform calculations directly on the columnar data without row materialization, avoiding runtime costs.
 
-However, some data transformations cannot be easily or efficiently expressed as SQL. In high energy physics, most data processing requires nested loops with complex dependencies. When faced with these tasks, the conventional approach is to convert the columnar data back into an object form, such as SparkSQL DataFrames into Spark RDDs or ROOT TTrees into C++ objects.
+However, many analysis procedures cannot be easily or efficiently expressed as SQL. In High Energy Physics, the majority of data processing requires nested loops with complex dependencies. When faced with tasks like these, the conventional approach is to convert the columnar data back into an object form, usually with a performance price.
 
-This paper describes a new technique to transform procedural code so that it operates on columnar data natively, without row materialization. It can be viewed as a compiler pass on the typed Abstract Syntax Tree (AST), rewriting references to objects as columnar array lookups.
+This paper describes a new technique to transform procedural code so that it operates on columnar data natively, without row materialization. It can be viewed as a compiler pass on the typed AST, rewriting references to objects as columnar array lookups.
 
-We will also present performance comparisons between transformed code and conventional object-oriented code in a high energy physics context.
+We will also present performance comparisons between transformed code and conventional object-oriented code in a High Energy Physics context.
 
 \end{abstract}
 
@@ -578,9 +578,50 @@ Big data applications; Data structures; Automatic programming; Data analysis; Sc
 % set second argument of \begin to the number of references
 % (used to reserve space for the reference number labels box)
 
-\section{Introduction}
+\section{Motivation}
 
-you\cite{root} hey\cite{dremel}
+Analysis procedures can be roughly categorized by whether they are easily expressed as transformations of data tables into new tables, by SQL or an SQL variant, rather than a general-purpose programming language. We must emphasize that ``easily expressed'' is subjective, and therefore illustrate with progressively more complex examples.
+
+Suppose we have High Energy Physics (HEP) data in a table with the following schema.
+
+\vspace{0.15 cm}
+\begin{minted}{sql}
+CREATE TYPE PARTICLE FROM
+    STRUCT<pt: DOUBLE,
+           eta: DOUBLE,
+           phi: DOUBLE>;
+
+CREATE TABLE events (
+    eventId INT,
+    muons   ARRAY<PARTICLE>,
+    jets    ARRAY<PARTICLE>,
+    UNIQUE KEY eventId
+);
+\end{minted}
+
+\vspace{0.15 cm}
+\noindent Often the first exploratory action in a HEP analysis is to plot a distribution of the highest particle {\tt\small pt} {\it per event.} We could do that in SQL by exploding the {\tt\small muons} into a virtual table and aggregating the maximum {\tt\small pt}, grouped by {\tt\small eventId}. If the execution engine loses track of the fact that unique values of {\tt\small eventId} are contiguous in the exploded table, the query would unnecessarily search the entire dataset for {\tt\small eventId} matches. A Python or C++ program would not.
+
+The second action a HEP analyst usually takes is to compute masses from {\tt\small pt}, {\tt\small eta}, and {\tt\small phi} of pairs of particles\footnote{$\sqrt{2 {p_1}^{p_T} {p_2}^{p_T} (\cosh({p_1}^\eta - {p_2}^\eta) - \cos({p_1}^\phi - {p_2}^\phi))}$ for $p_1$ and $p_2$}, to see if any were the decay products of a short-lived intermediary. Candidates for such a decay would always be found in the same event, so this query in SQL would involve a full outer join on two exploded {\tt\small muons} tables or exploded {\tt\small muons} and exploded {\tt\small jets}, subject to equal {\tt\small eventId}. In this case, it is even more important that the uniqueness of {\tt\small eventId} is tracked, since the join could turn an $\mathcal{O}(n_{\mbox{\scriptsize events}})$ calculation into $\mathcal{O}(n_{\mbox{\scriptsize events}} \log n_{\mbox{\scriptsize events}})$.
+
+HEP data manipulations only get more complex from there. The problem is that the data's schema is a poor fit to the relational model for which SQL was designed. The data consist of hierarchically nested elements, which are easily expressed in a procedural or functional language as arbitrary-length lists and record objects, with many language tools designed to manipulate them.
+
+Sequentially iterating over a large set of objects, applying a user defined function to each, can be much slower than a database query. Databases enjoy several advantages: (1) indexing by primary keys, (2) columnar data layout, and (3) code manipulation (``term rewriting''). Indexing is beyond the scope of this paper, but columnar data layouts are increasingly being used to store hierarchical data. Code manipulation of general purpose programming languages is only common at the compiler level, but data analysis frameworks are beginning to use Just-In-Time compilation (JIT compilation) and metaprogramming in their workflows.
+
+ROOT\cite{root}, the HEP analysis framework, was first to store hierarchical data structures as columns. The ROOT file format (in ``split mode'') stores primitive attribute data adjacent to one another on disk, e.g.\ all muon {\tt\small pt} values, followed by all muon {\tt\small eta} values, etc. Google independently developed Dremel\cite{dremel}, on which Apache Parquet is based. Spark 2.0 and Apache Arrow store hierarchical data as columns in memory as well--- each of these projects saw a substantial increase in data throughput from the columnar layout, especially when processes access only a few of the attributes.
+
+JIT compilation is central to machine learning tools like H2O\cite{h2o} and Theano\cite{theano}, Julia\cite{julia}, a scientific programming language, as well as ROOT. To our knowledge, however, none employ code manipulation to the same degree as SQL engines.
+
+
+
+
+
+
+
+
+
+
+% you\cite{root} hey\cite{dremel}
 
 \section{Data Representation}
 
