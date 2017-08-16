@@ -412,7 +412,7 @@ Big Data query systems represent data in a columnar format for fast, selective a
 
 However, many analysis procedures cannot be easily or efficiently expressed as SQL. In High Energy Physics, the majority of data processing requires nested loops with complex dependencies. When faced with tasks like these, the conventional approach is to convert the columnar data back into an object form, usually with a performance price.
 
-This paper describes a new technique to transform procedural code so that it operates on columnar data natively, without row materialization. It can be viewed as a compiler pass on the typed AST, rewriting references to objects as columnar array lookups.
+This paper describes a new technique to transform procedural code so that it operates on columnar data natively, without row materialization. It can be viewed as a compiler pass on the typed abstract syntax tree, rewriting references to objects as columnar array lookups.
 
 We will also present performance comparisons between transformed code and conventional object-oriented code in a High Energy Physics context.
 
@@ -606,24 +606,20 @@ The second action a HEP analyst usually takes is to compute masses from {\tt\sma
 
 HEP data manipulations only get more complex from there. The problem is that the data's schema is a poor fit to the relational model for which SQL was designed. The data consist of hierarchically nested elements, which are easily expressed in a procedural or functional language as arbitrary-length lists and record objects, with many language tools designed to manipulate them.
 
-Sequentially iterating over a large set of objects, applying a user defined function to each, can be much slower than a database query. Databases enjoy several advantages: (1) indexing by primary keys, (2) columnar data layout, and (3) code manipulation (``term rewriting''). Indexing is beyond the scope of this paper, but columnar data layouts are increasingly being used to store hierarchical data. Code manipulation of general purpose programming languages is only common at the compiler level, but data analysis frameworks are beginning to use Just-In-Time compilation (JIT compilation) and metaprogramming in their workflows.
+However, sequentially iterating over a large set of objects and applying a user defined function to each can be much slower than a database query, even when parallelized. Databases enjoy several advantages: (1) indexing by primary keys, (2) columnar data layout, and (3) code manipulation (``term rewriting''). Indexing is beyond the scope of this paper, but columnar data layouts are increasingly being used to store hierarchical data. Code manipulation of general purpose programming languages is only common at the compiler level, but data analysis frameworks are beginning to use Just-In-Time (JIT) compilation and metaprogramming in their workflows.
 
-ROOT\cite{root}, the HEP analysis framework, was first to store hierarchical data structures as columns. The ROOT file format (in ``split mode'') stores primitive attribute data adjacent to one another on disk, e.g.\ all muon {\tt\small pt} values, followed by all muon {\tt\small eta} values, etc. Google independently developed Dremel\cite{dremel}, on which Apache Parquet is based. Spark 2.0 and Apache Arrow store hierarchical data as columns in memory as well--- each of these projects saw a substantial increase in data throughput from the columnar layout, especially when processes access only a few of the attributes.
+ROOT\cite{root}, the HEP analysis framework, was first to store hierarchical data structures as columns. The ROOT file format (in ``split mode'') stores primitive attribute data adjacent to one another on disk, e.g.\ all muon {\tt\small pt} values, followed by all muon {\tt\small eta} values, etc. Google independently developed Dremel\cite{dremel}, on which Apache Parquet is based. Spark 2.0 and Apache Arrow extend this concept to data in memory, and each has seen substantial increases in data throughput when switching to a columnar layout, especially for processes that access only a few of the attributes.
 
-JIT compilation is central to machine learning tools like H2O\cite{h2o} and Theano\cite{theano}, Julia\cite{julia}, a scientific programming language, as well as ROOT. To our knowledge, however, none employ code manipulation to the same degree as SQL engines.
+JIT compilation is central to machine learning tools like H2O\cite{h2o} and Theano\cite{theano}, Julia\cite{julia}, a scientific programming language, as well as ROOT. To our knowledge, however, none manipulate the user's code to match the structure of its columnar data.
 
+In this paper, we propose a technique to transform user code to more quickly access columnar data in memory. This technique is inspired by similar methods used on SQL, but SQL tightly controls all loops over data, making the transformation easier. We find that it can be performed on general user code if an Abstract Syntax Tree (AST) with type information is provided, or in conjunction with a type-inference pass over an untyped AST. The user code does not need to walk through the data in order, though it would benefit from fewer cache misses if it is sequential with a regular stride.
 
-
-
-
-
-
-
-
-
-% you\cite{root} hey\cite{dremel}
+Code transformation could be seen as a general alternative to object deserialization: when faced with user code expecting objects and data in columnar arrays, one could either transform the data to fit the code's expectations (deserialization) or transform the code to fit the data. Deserialization is the more common choice, and the only practical one for complex data formats, but code transformation can be much faster. When manipulating code, the data format is only interpreted once at compile-time. When manipulating data, the format is interpreted once per object, in addition to extra memory allocations and copying.
 
 \section{Data Representation}
+
+HERE
+
 
 \subsection{Type System}
 
