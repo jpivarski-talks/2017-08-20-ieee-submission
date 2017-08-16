@@ -352,24 +352,24 @@
 %
 % paper title
 % can use linebreaks \\ within to get better formatting as desired
-\title{Bare Demo of IEEEtran.cls for IEEECS Conferences}
+\title{Fast Access to Columnar, Hierarchical Data via Code Transformation}
 
 
 % author names and affiliations
 % use a multiple column layout for up to two different
 % affiliations
 
-\author{\IEEEauthorblockN{Authors Name/s per 1st Affiliation (Author)}
-\IEEEauthorblockA{line 1 (of Affiliation): dept. name of organization\\
-line 2: name of organization, acronyms acceptable\\
-line 3: City, Country\\
-line 4: Email: name@xyz.com}
+\author{\IEEEauthorblockN{Jim Pivarski}
+\IEEEauthorblockA{Physics Department\\
+Princeton University\\
+Princeton, NJ, 08544\\
+pivarski@princeton.edu}
 \and
-\IEEEauthorblockN{Authors Name/s per 2nd Affiliation (Author)}
-\IEEEauthorblockA{line 1 (of Affiliation): dept. name of organization\\
-line 2: name of organization, acronyms acceptable\\
-line 3: City, Country\\
-line 4: Email: name@xyz.com}
+\IEEEauthorblockN{Peter Elmer}
+\IEEEauthorblockA{Physics Department\\
+Princeton University\\
+Princeton, NJ, 08544\\
+peter.elmer@cern.ch}
 }
 
 % conference papers do not typically use \thanks and this command
@@ -408,12 +408,18 @@ line 4: Email: name@xyz.com}
 
 
 \begin{abstract}
-The abstract goes here. DO NOT USE SPECIAL CHARACTERS, SYMBOLS, OR MATH IN YOUR TITLE OR ABSTRACT.
+Big Data query systems like Apache Drill represent hierarchical data in a columnar format for fast, selective access, and perform calculations directly on the columnar data without row materialization, avoiding runtime costs.
+
+However, some data transformations cannot be easily or efficiently expressed as SQL. In high energy physics, most data processing requires nested loops with complex dependencies. When faced with these tasks, the conventional approach is to convert the columnar data back into an object form, such as SparkSQL DataFrames into Spark RDDs or ROOT TTrees into C++ objects.
+
+This paper describes a new technique to transform procedural code so that it operates on columnar data natively, without row materialization. It can be viewed as a compiler pass on the typed Abstract Syntax Tree (AST), rewriting references to objects as columnar array lookups.
+
+We will also present performance comparisons between transformed code and conventional object-oriented code in a high energy physics context.
 
 \end{abstract}
 
 \begin{IEEEkeywords}
-component; formatting; style; styling;
+Big data applications; Data structures; Automatic programming; Data analysis; Scientific computing; High energy physics instrumentation computing
 
 \end{IEEEkeywords}
 
@@ -430,25 +436,25 @@ component; formatting; style; styling;
 
 
 
-\section{Introduction}
-% no \IEEEPARstart
-This demo file is intended to serve as a ``starter file''
-for IEEE conference papers produced under \LaTeX\ using
-IEEEtran.cls version 1.7 and later.
+%% \section{Introduction}
+%% % no \IEEEPARstart
+%% This demo file is intended to serve as a ``starter file''
+%% for IEEE conference papers produced under \LaTeX\ using
+%% IEEEtran.cls version 1.7 and later.
 
-All manuscripts must be in English. These guidelines include complete descriptions of the fonts, spacing, and related information for producing your proceedings manuscripts. Please follow them and if you have any questions, direct them to the production editor in charge of your proceedings at Conference Publishing Services (CPS): Phone +1 (714) 821-8380 or Fax +1 (714) 761-1784.
-% You must have at least 2 lines in the paragraph with the drop letter
-% (should never be an issue)
+%% All manuscripts must be in English. These guidelines include complete descriptions of the fonts, spacing, and related information for producing your proceedings manuscripts. Please follow them and if you have any questions, direct them to the production editor in charge of your proceedings at Conference Publishing Services (CPS): Phone +1 (714) 821-8380 or Fax +1 (714) 761-1784.
+%% % You must have at least 2 lines in the paragraph with the drop letter
+%% % (should never be an issue)
 
-\subsection{Subsection Heading Here}
-Subsection text here.
+%% \subsection{Subsection Heading Here}
+%% Subsection text here.
 
 
-\subsubsection{Subsubsection Heading Here}
-Subsubsection text here.
+%% \subsubsection{Subsubsection Heading Here}
+%% Subsubsection text here.
 
-\section{Type style and Fonts}
-Wherever Times is specified, Times Roman or Times New Roman may be used. If neither is available on your system, please use the font closest in appearance to Times. Avoid using bit-mapped fonts if possible. True-Type 1 or Open Type fonts are preferred. Please embed symbol fonts, as well, for math, etc.
+%% \section{Type style and Fonts}
+%% Wherever Times is specified, Times Roman or Times New Roman may be used. If neither is available on your system, please use the font closest in appearance to Times. Avoid using bit-mapped fonts if possible. True-Type 1 or Open Type fonts are preferred. Please embed symbol fonts, as well, for math, etc.
 
 
 % An example of a floating figure using the graphicx package.
@@ -535,18 +541,18 @@ Wherever Times is specified, Times Roman or Times New Roman may be used. If neit
 
 
 
-\section{Conclusion}
-The conclusion goes here. this is more of the conclusion
+%% \section{Conclusion}
+%% The conclusion goes here. this is more of the conclusion
 
 % conference papers do not normally have an appendix
 
 
 % use section* for acknowledgement
-\section*{Acknowledgment}
+%% \section*{Acknowledgment}
 
 
-The authors would like to thank...
-more thanks here
+%% The authors would like to thank...
+%% more thanks here
 
 
 % trigger a \newpage just before the given reference
@@ -571,18 +577,30 @@ more thanks here
 % <OR> manually copy in the resultant .bbl file
 % set second argument of \begin to the number of references
 % (used to reserve space for the reference number labels box)
-\begin{thebibliography}{1}
 
-\bibitem{IEEEhowto:kopka}
-H.~Kopka and P.~W. Daly, \emph{A Guide to \LaTeX}, 3rd~ed.\hskip 1em plus
-  0.5em minus 0.4em\relax Harlow, England: Addison-Wesley, 1999.
+\section{Introduction}
 
-\end{thebibliography}
+hey\cite{dremel} you
 
+\section{Data Representation}
 
+\subsection{Type System}
 
+\subsection{Objects to Arrays}
 
-% that's all folks
+\subsection{Arrays to Objects}
+
+\section{Code Transformation}
+
+\section{Implementation}
+
+\subsection{Python Implementation}
+
+\subsection{Performance Studies}
+
+\section{Conclusions}
+
+\bibliographystyle{IEEEtran}
+\bibliography{IEEEabrv,mybibliography}
+
 \end{document}
-
-
