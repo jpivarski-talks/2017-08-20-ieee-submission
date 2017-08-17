@@ -736,6 +736,8 @@ Therefore, any function that references Primitive, List, Union, and Record objec
 
 To see this as an alternative to deserialization, consider a scenario in which all arrays are in a binary file on disk that has been memory-mapped to look like an array. When the transformed code accesses a structured object, it is actually reading values from disk. No additional representation of the data is created; the new function knows what to do from the raw byte values and proceeds as the old function would have with objects. We have skipped deserialization.
 
+The technique described below can be applied to code written in any language, but all of the explicit examples are for Python code because our reference implementation\cite{plur} transforms Python code.
+
 \subsection{General Strategy}
 
 Unlike SQL, procedural and functional programming languages can assign and possibly reassign variables, extract substructure as new variables, loop over substructure, and pass objects to other functions, where they are identified with new names. It is not sufficient to only transform symbols that coincide with prefix names, since parts of the data structure may be spread among user-defined variables. To avoid missing code that needs to be transformed, we must track the PLUR type of all symbols in the function.
@@ -760,7 +762,6 @@ Any use of a PLUR type that isn't specially handled must be treated as an error 
 
 {\bf Symbol references} are the easiest to transform. In the original function, an identifier that refers to a PLUR object becomes an identifier for its integer index, so a symbol reference becomes array extraction.
 
-\pagebreak
 For Primitive and List types:
 \begin{center}
 {\tt x} (referring to object) $\to$ {\tt array[x]} ({\tt x} is index)
@@ -771,7 +772,7 @@ Unions immediately resolve to their specific type (unless you require the user t
 \begin{center}
 {\tt x} $\to$ {\tt t $\coloneqq$ tag[x]; if (t == 0) off[x] \ldots}
 \end{center}
-This is more difficult in languages like Python, which do not allow assignment in an expression (the symbol reference can appear anywhere in an expresssion); see our Python implementation (referenced below) for the work-around.
+This is more difficult in languages like Python, which do not allow assignment in an expression (the symbol reference can appear anywhere in an expresssion); see our Python implementation\cite{plur} for the work-around.
 
 References to Record symbols do not require any transformation at all.
 
@@ -813,28 +814,48 @@ A function may return a non-Primitive PLUR type; the transformed version returns
 \end{center}
 (applied without transforming the argument {\tt x}, or by reverse-engineering an applied transformation).
 
-{\bf isinstance}: (check type) must return true if the argument has a given type, false otherwise. Since references to non-Primitive PLUR types have all been replaced with integer indexes, a naive application of the {\tt isinstance} function would yield true for integers, contrary to a user's expectation.
+{\bf isinstance}: (check type) must return true if the argument has a given type, false otherwise. Since references to non-Primitive PLUR types have all been replaced with integer indices, a naive application of the {\tt isinstance} function would yield true for integers, contrary to a user's expectation.
 
 The type or types to check must be known as literal names, not computed references, during the transformation sweep. If the argument to check has List or Record type, the whole expression should be replaced with true or false depending on whether the desired types are in the set of types to check. If it is a Union, it must be replaced with a tag check.
 
-\subsection{Special Cases and Flourishes}
+\subsection{Flourishes}
+
+Depending on your needs, you can provide more or less support for PLUR objects in the transformed code. The only requirement is that the transformed code either works exactly as object-oriented code would or fails to be transformed (compilation error).
+
+\subsubsection{List overflows}
+
+One special case requires special attention: what to do about List index overflows? In the minimal transformation described above, PLUR List overflows behave like C array overflows, in that they return undefined results. The errors are less obvious and therefore more dangerous than typical C array overflows because PLUR values just beyond a List's boundary belong to the same attribute in the next List, so they probably have the right scale and distribution, subtly biasing analysis results.
+
+A simple way to eliminate mistakes like this is to add a range check to the transformed code. Indices that fail the range check should raise a runtime exception. It would be correct, but many of these range checks would be unnecessary and would slow down processing. For instance, the list subscript could be in the body of an {\tt if} statement where the user did range-checking manually, or it could be in a {\tt for} loop bounded by the list length (a very common case), or it could be a {\tt foreach} node (Python {\tt for}) that has been transformed from objects to indices (another flourish).
+
+Since we are performing type-inference anyway, we could track intervals of validity for expressions that appear in list subscripts. This is known as a dependent type check, and for our case the validity endpoints should be symbolic: literal integers or $\ell_T$ symbols for the length of List type/array prefix $T$. The symbolic algebra includes only inequality operators, addition and subtraction, logical operators, and restrictions in {\tt if}-{\tt else} blocks. If the expression in a list subscript is not provably between 0 (inclusive) and $\ell_T$ (exclusive), a compilation error warns the user of the possibility of List overflows and refuses to transform the code.
+
+\subsubsection{Pythonic indexes}
+
+Negative index handling in Python would be another flourish, which only slightly complicates the above.
+
+\subsubsection{Eliminating zero-lookups}
+
+As an optimization, one can statically identify array lookups that always return zero: the first element of every list offset array is zero, and the outermost list offset array has exactly two elements, only the first is dereferenced by list subscripting. Without removing this unnecessary code, it will be executed for every element of a large List. (PLUR-unaware compilers cannot remove it.)
+
+\subsubsection{Type constructors}
+
+As stated above, passing a non-Primitive PLUR object to any unrecognized function is a compilation error. This especially includes constructors for dynamic objects like Python lists and dictionaries, since we cannot statically track where they are used. However, you may wish to allow some immutable objects to include PLUR objects, such as Python tuples to use Python tuple-unpacking in assignments. You then become obliged, however, to track these objects as containing PLUR types.
+
+\subsubsection{Pattern matching}
+
+More generally than Python's tuple-unpacking, your target language may feature pattern-matching, and you may need to track PLUR types through syntactical structures like these.
+
+\subsubsection{Equality and order}
+
+PLUR objects have a natural definition for equality
 
 
-
-
-
-optimization: track zeros
 
 equal/not equal (value equality)
 is/isnot (object equality by reference) is easy
-foreach and equivalents, like list comprehension
 sorted
 
-dynamic objects, like Python lists, dictionaries
-
-tuples for unpacking assignments ONLY IMMUTABLE
-
-index beyond PLUR List may be undefined, always checked at runtime, or guarded by propagating index constraints through the code: integers become integers with intervals of validity, {\tt len(list)} is symbolic, predicates and logical operators ({\tt and}, {\tt or}, {\tt not}) propagate intervals of validity, as do arithmetic operators ({\tt +}, {\tt -}, and {\tt *}), and {\tt if}-{\tt else} constrict them.
 
 these exceptional cases may cause a compilation error, raise an exception at runtime (unnecessary as most of the above would be known at compile-time), or invoke a conversion to objects following the arrays-to-objects algorithm
 
