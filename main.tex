@@ -722,46 +722,108 @@ With the appropriate translation between PLUR types and Arrow types, array names
 
 \section{Code Transformation}
 
-An important feature of this data representation is that a structure of any type can be expressed by a single integer, the index that would be used to start the arrays-to-objects algorithm. A type and a prefix uniquely specifies a set of arrays, so the only new information at runtime are locations within those arrays.
+An important feature of this data representation is that a structure of any type can be expressed by a single integer, the index that would be used to start the arrays-to-objects algorithm. A type and an array name prefix uniquely specifies a set of arrays, so the only new information at runtime are locations within those arrays.
 
 Only one index is required because:
 \begin{itemize}
 \item a Primitive value is located at one index in its array;
 \item a List's length can be computed from one index \mbox{($a[i_a + 1] - a[i_a]$)} and all of its contents are derived from the value of its offset array at that index;
 \item a Union is specified by a tag from its tag array and an offset from its offset array, which occur at the same index. All of the contents are derived from the offset;
-\item a Record is just a bundle of fields with no structure array. However, the contents of all fields in the same Record are derived from the same index.
+\item a Record is just a bundle of fields with no structure array. However, the contents of all fields in one Record start at the same index.
 \end{itemize}
 
 Therefore, any function that references Primitive, List, Union, and Record objects, no matter how complicated, can be replaced with a function that references integer indices. We shape the code to match the data format, rather than shaping the data to match the object-oriented vocabulary of the code.
 
-To see this as an alternative to deserialization, consider a scenario in which all arrays are in a binary file on disk that file has been memory-mapped to look like an array. When the transformed code accesses a structured object, it is actually reading values from disk. No additional representation of the data is created; the new function knows what to do from the raw byte values and proceeds as the old function would have with objects. We have skipped deserialization.
+To see this as an alternative to deserialization, consider a scenario in which all arrays are in a binary file on disk that has been memory-mapped to look like an array. When the transformed code accesses a structured object, it is actually reading values from disk. No additional representation of the data is created; the new function knows what to do from the raw byte values and proceeds as the old function would have with objects. We have skipped deserialization.
 
-\subsection{General strategy}
+\subsection{General Strategy}
 
-Unlike SQL, procedural and functional programming languages can assign and possibly reassign variables, extract substructure as new variables, and pass them to other functions with new names. It is not sufficient to only transform symbols that coincide with prefix names, since parts of the data structure may be spread among user-defined variables. To avoid missing code that needs to be transformed, we must track the PLUR type of all symbols in the function.
+Unlike SQL, procedural and functional programming languages can assign and possibly reassign variables, extract substructure as new variables, loop over substructure, and pass objects to other functions, where they are identified with new names. It is not sufficient to only transform symbols that coincide with prefix names, since parts of the data structure may be spread among user-defined variables. To avoid missing code that needs to be transformed, we must track the PLUR type of all symbols in the function.
 
-We therefore need a typed AST, in which PLUR types and prefixes are associated with any expression nodes that hold non-Primitive PLUR type. (Knowledge of other types is not necessary but also not harmful.) If the code to be transformed takes more than one prefixed object as input, the prefix must be propagated with the type so that references to the right arrays may be injected into the code. Code transformation and type propagation may be performed in a single sweep.
+We therefore need a typed AST, in which PLUR types and array name prefixes are associated with any expression nodes that hold non-Primitive PLUR type. (Knowledge of other types is not necessary but not harmful.) The prefixes must be propagated with the type because different parts of a data structure may have the same type but different values, and the correct array references need to be injected into the code. Code transformation and type propagation may be performed in a single sweep.
 
-There are several constraints on the code to be transformed. It cannot create or change PLUR objects, which is reasonable for an analysis procedure. It can use external functions, but if a PLUR object is passed as an argument to such a function, the code for that function must be accessible so that it can be transformed, too. If the same function is called in different places with different PLUR types or prefixes as arguments, multiple versions of the transformed function will be generated. These functions cannot be created or passed dynamically; their code must be accessible during the transformation sweep.
+There are several constraints on the code to be transformed. It cannot create or change PLUR objects, which is reasonable for an analysis procedure. It can use external functions, but if a non-Primitive PLUR object is passed as an argument to such a function, the code for that function must be accessible so that it can be transformed, too. If the same function is called in different places with different PLUR types/names as arguments, multiple versions of the transformed function will be generated. These external functions cannot be created or passed dynamically; their code must be accessible for conversion during the transformation sweep.
 
 The following AST nodes must be transformed:
 \begin{itemize}
 \item {\bf symbol reference}, which might be a PLUR object;
-\item {\bf assignment}, which might pass PLUR type to a new symbol;
+\item {\bf assignment}, which might pass PLUR type and prefix to a new symbol;
 \item {\bf list subscript} (square brackets in most languages), which can dereference a PLUR List;
-\item {\bf attribute} (dot in most languages), which can dereference a PLUR Record;
-\item {\bf function calls}, which can pass PLUR types to a new function, widening the scope of the transformation sweep to include that function, and may return a PLUR type that must be tracked;
-\item {\bf special functions}, like {\tt len} (List length) and {\tt isinstance} (Union type) in Python, which have to be handled as special cases when called on PLUR types.
+\item {\bf attribute subscript} (dot in most languages), which can dereference a PLUR Record;
+\item {\bf function calls}, which can pass PLUR types and prefixes to a new function, widening the scope of the transformation sweep to include that function, and may return a PLUR type/prefix that must be tracked;
+\item {\bf special functions}, like {\tt len} (List length) and {\tt isinstance} (check type) in Python, which have to be handled as special cases when called on PLUR types.
 \end{itemize}
 
+Any use of a PLUR type that isn't specially handled must be treated as an error to avoid misinterpretations. Since this transformation sweep is performed on an AST, often before the transformed code is further transformed by a low-level compiler, these errors would appear to the user as compilation errors, preferably with line numbers and meaningful error messages.
+
+\subsection{Required Transformations}
+
+{\bf Symbol references} are the easiest to transform. In the original function, an identifier that refers to a PLUR object becomes an identifier for its integer index, so a symbol reference becomes array extraction.
+
+\pagebreak
+For Primitive and List types:
+\begin{center}
+{\tt x} (referring to object) $\to$ {\tt array[x]} ({\tt x} is index)
+\end{center}
+where {\tt array} is the only array associated with a Primitive and the list offset associated with a List.
+
+Unions immediately resolve to their specific type (unless you require the user to ``unpack'' opaque Union objects with a function). This is most easily handled by (1) creating a new symbol in the transformed code to hold the tag value and (2) checking each tag possibility, returning the offset of the appropriate one:
+\begin{center}
+{\tt x} $\to$ {\tt t $\coloneqq$ tag[x]; if (t == 0) off[x] \ldots}
+\end{center}
+This is more difficult in languages like Python, which do not allow assignment in an expression (the symbol reference can appear anywhere in an expresssion); see our Python implementation (referenced below) for the work-around.
+
+References to Record symbols do not require any transformation at all.
+
+{\bf Assignment} merely passes the PLUR type and associated array names to a new symbol. In the type-inference pass, this means adding the type information to a symbol table.
+
+Assignment is more complex if you try to handle pattern matching, such as Python's tuple unpacking (see ``Flourishes'' below).
+
+{\bf List subscripts} replace a List index with a Primitive value if it is a List of Primitives or the index of the next substructure down if it is any other type. This can be performed in two steps: (1) transform
+\begin{center}
+{\tt x[i]} $\to$ {\tt off[x + i]}
+\end{center}
+and then (2) transform the result of this as though it were a symbol reference (rule described above) using the List's item type.
+
+An attempt to subscript any PLUR type other than a List is an error. The above only works if the index resolves to integer type, not (for example) a Python {\tt slice}. Handling slices would be considered a flourish.
+
+{\bf Attribute subscripts} extract a field from a Record by name. In most languages, the field names are syntactically required to be a string known at compile-time with identifier constraints on the characters.
+
+We do this transformation in two steps, like the list subscript above: (1) transform
+\begin{center}
+{\tt x.fieldname} $\to$ {\tt x}
+\end{center}
+and then (2) transform the result of this as though it were a symbol reference (rule described above) using the selected field type.
+
+An attempt to subscript any PLUR type other than a Record is an error.
+
+{\bf Function calls} can either include non-Primitive PLUR types in their arguments or not. If a function call does not reference any non-Primitive PLUR types, it can be left as-is (after transforming the arguments).
+
+If it references non-PLUR types, then we must obtain the AST for that function and propagate PLUR types through it, starting with the argument types. If the function has previously been transformed, then the transformed copy may be reused only if the argument types (and array prefixes) are the same as before. We are treating all functions as though they were parameterized in every argument because different array prefixes require different code transformations.
+
+If a function is recursive, then this process will only terminate if previous transformations of the function are saved and reused for the same type arguments. It is not merely an optimization to reuse transformed functions, where applicable.
+
+A function may return a non-Primitive PLUR type; the transformed version returns an integer index. This type must be propagated when the code transformation returns to the original function.
+
+{\bf Special functions} that return meaningful data about non-Primitive PLUR types must be handled on a case-by-case basis. As with any function call, if a non-Primitive PLUR type is an argument, the function's identity must be known during the transformation sweep. Below are two important cases.
+
+{\bf len}: (get length of List) must return the length when given a PLUR List, which is computed as
+\begin{center}
+{\tt len(x)} $\to$ {\tt off[x + 1] - off[x]}
+\end{center}
+(applied without transforming the argument {\tt x}, or by reverse-engineering an applied transformation).
+
+{\bf isinstance}: (check type) must return true if the argument has a given type, false otherwise. Since references to non-Primitive PLUR types have all been replaced with integer indexes, a naive application of the {\tt isinstance} function would yield true for integers, contrary to a user's expectation.
+
+The type or types to check must be known as literal names, not computed references, during the transformation sweep. If the argument to check has List or Record type, the whole expression should be replaced with true or false depending on whether the desired types are in the set of types to check. If it is a Union, it must be replaced with a tag check.
+
+\subsection{Special Cases and Flourishes}
 
 
 
 
 
-
-
-\subsection{Special cases and flourishes}
+optimization: track zeros
 
 equal/not equal (value equality)
 is/isnot (object equality by reference) is easy
@@ -770,9 +832,7 @@ sorted
 
 dynamic objects, like Python lists, dictionaries
 
-tuples for unpacking assignments
-
-recursion; type inference; PLUR has finite depth (except for pointers)
+tuples for unpacking assignments ONLY IMMUTABLE
 
 index beyond PLUR List may be undefined, always checked at runtime, or guarded by propagating index constraints through the code: integers become integers with intervals of validity, {\tt len(list)} is symbolic, predicates and logical operators ({\tt and}, {\tt or}, {\tt not}) propagate intervals of validity, as do arithmetic operators ({\tt +}, {\tt -}, and {\tt *}), and {\tt if}-{\tt else} constrict them.
 
