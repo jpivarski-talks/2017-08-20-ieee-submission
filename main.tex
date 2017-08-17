@@ -681,7 +681,7 @@ Pop the $\mbox{``-Ud''} + t$ from the beginning of all other array names associa
 
 {\bf If all array names begin with ``-R\_''}, then the type is a Record. Partition the set of arrays by field name $N_f$, pop the $\mbox{``-R\_''} + N_f$ from the beginning of the array names, and apply the rule separately for each partition to fill each field.
 
-If any other configuration of arrays and names is encountered, the arrays are malformed. If indexes go beyond the lengths of the arrays or do not perfectly end on the last element of each array, then the arrays are malformed.
+If any other configuration of arrays and names is encountered, the arrays are malformed. If indices go beyond the lengths of the arrays or do not perfectly end on the last element of each array, then the arrays are malformed.
 
 \subsection{Random access and redundancy}
 
@@ -722,11 +722,43 @@ With the appropriate translation between PLUR types and Arrow types, array names
 
 \section{Code Transformation}
 
+An important feature of this data representation is that a structure of any type can be expressed by a single integer, the index that would be used to start the arrays-to-objects algorithm. A type and a prefix uniquely specifies a set of arrays, so the only new information at runtime are locations within those arrays.
+
+Only one index is required because:
+\begin{itemize}
+\item a Primitive value is located at one index in its array;
+\item a List's length can be computed from one index \mbox{($a[i_a + 1] - a[i_a]$)} and all of its contents are derived from the value of its offset array at that index;
+\item a Union is specified by a tag from its tag array and an offset from its offset array, which occur at the same index. All of the contents are derived from the offset;
+\item a Record is just a bundle of fields with no structure array. However, the contents of all fields in the same Record are derived from the same index.
+\end{itemize}
+
+Therefore, any function that references Primitive, List, Union, and Record objects, no matter how complicated, can be replaced with a function that references integer indices. We shape the code to match the data format, rather than shaping the data to match the object-oriented vocabulary of the code.
+
+To see this as an alternative to deserialization, consider a scenario in which all arrays are in a binary file on disk that file has been memory-mapped to look like an array. When the transformed code accesses a structured object, it is actually reading values from disk. No additional representation of the data is created; the new function knows what to do from the raw byte values and proceeds as the old function would have with objects. We have skipped deserialization.
+
+\subsection{}
+
+
+
+
+
+
+
 \section{Implementation}
 
 \subsection{Python Implementation}
 
+\subsection{ROOT Interface}
+
 \subsection{Performance Studies}
+
+\subsection{Applications}
+
+event and non-event data, lookup tables
+
+query server
+
+column granularity: virtual datasets, event lists
 
 \section{Conclusions}
 
