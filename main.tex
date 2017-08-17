@@ -691,11 +691,11 @@ At each level, the contents of the ``-Lo'' array are the starting indices of the
 
 In fact, if we want to reconstruct only one object in a List, we simply apply the arrays-to-objects procedure for that List's ``-Ld'' arrays with all indices starting at $i_a = i$.
 
-Random access is a useful feature, but it is less optimal for compression or variable-length integer encoding algorithms. If we wish to store or transmit a List structure in the fewest possible bytes, it should be converted into a corresponding size array (suffix ``-Ls''). For all $i \in [0, \mbox{ length of x-Lo} - 1)$,
+Random access is a useful feature, but this offset array is not optimal for compression or variable-length integer encoding algorithms. If we wish to store or transmit a List structure in the fewest possible bytes, it should be converted into a corresponding size array (suffix ``-Ls''). For all $i \in [0, \mbox{ length of x-Lo} - 1)$,
 \[ \mbox{x-Ls{\tt [}} i \mbox{\tt ]} \coloneqq \mbox{x-Lo{\tt [}} i + 1 \mbox{\tt ]} - \mbox{x-Lo{\tt [}} i \mbox{\tt ]} \]
 and vice-versa. (The offset array is one element longer than the size array because we include the initial offset 0, which simplifies the code transformation in the next section.) A nice option would be to transfer or store List structures as size arrays for less redundancy, then expand as offset arrays for random access.
 
-The Union structure, as encoded in the previous section, is not random accessible. Data arrays for each type possibility $T_t$ are only filled if a datum of that type is observed, so each type possibility must be indexed by a different offset. The arrays-to-objects procedure described in the previous subsection avoids this issue by walking over the data sequentially.
+The Union structure, as described so far, is not random accessible. Data arrays for each type possibility $T_t$ are only filled if a datum of that type is observed, so each type possibility must be indexed by a different offset. The arrays-to-objects procedure described in the previous subsection avoids this issue by walking over the data sequentially.
 
 To make Unions random accessible, we need to add a union offset array ``-Uo''. This can be generated from the tag array ``-Ut'' by
 \begin{algorithmic}
@@ -703,14 +703,14 @@ To make Unions random accessible, we need to add a union offset array ``-Uo''. T
 \STATE $i_t \coloneqq 0$ {\bf for all} $t \in [1, n]$
 
 \vspace{0.15 cm}
-\FOR{$i \in [0, \mbox{ length of x-Ut}]$}
+\FOR{$i \coloneqq 0$ {\bf until} length of x-Ut}
 \STATE $t \coloneqq$ \mbox{x-Ut}{\tt [}$i${\tt ]}
 \STATE \mbox{x-Uo}{\tt [}$i${\tt ]} $\coloneqq i_t$
 \STATE $i_t \coloneqq i_t + 1$
 \ENDFOR
 \end{algorithmic}
 
-To reconstruct one Union object at index $i$, we find the tag $t$ at x-Ut{\tt [}$i${\tt ]} and follow the arrays-to-objects algorithm with the set of x-Ud$t$ arrays, all starting at index $i_t = \mbox{x-Uo{\tt [}}i\mbox{\tt]}$.
+Now we can access Union objects randomly: to reconstruct a Union at index $i$, we find the tag $t$ at x-Ut{\tt [}$i${\tt ]} and follow the arrays-to-objects algorithm on the set of arrays named with the corresponding ``-Ud$t$'', all starting at index $i_t$ given by $\mbox{x-Uo{\tt [}}i\mbox{\tt]}$.
 
 This union offset array is entirely redundant: it can always be generated from a tag array. Therefore, it never needs to be transmitted or stored.
 
