@@ -359,17 +359,17 @@
 % use a multiple column layout for up to two different
 % affiliations
 
-\author{\IEEEauthorblockN{Jim Pivarski}
+\author{\IEEEauthorblockN{Jim Pivarski, Peter Elmer}
 \IEEEauthorblockA{Physics Department\\
 Princeton University\\
 Princeton, NJ, 08544\\
-pivarski@princeton.edu}
+pivarski@princeton.edu, peter.elmer@cern.ch}
 \and
-\IEEEauthorblockN{Peter Elmer}
-\IEEEauthorblockA{Physics Department\\
-Princeton University\\
-Princeton, NJ, 08544\\
-peter.elmer@cern.ch}
+\IEEEauthorblockN{Brian Bockelman, Zhe Zhang}
+\IEEEauthorblockA{Department of Physics and Astronomy\\
+University of Nebraska-Lincoln\\
+Lincoln, NE 68588\\
+bbockelm@cse.unl.edu, zhan0915@huskers.unl.edu}
 }
 
 % conference papers do not typically use \thanks and this command
@@ -637,7 +637,7 @@ Another thing to notice is that Records are not named, as structs and classes ar
 
 In the same way, names can distinguish a raw List$\langle$char$\rangle$ from a String or even a UTF8String, which should be interpreted in different ways by user code. Similarly, nullable data can be represented as an Option$\langle$X$\rangle$, which is a List$\langle$X$\rangle$ that only allows zero (empty, null) or one (filled) elements.
 
-A particularly useful type is Pointer$\langle$X$\rangle$, which is an integer interpreted as a List index. In addition to having a type name that distinguishes it from ordinary integers, this type would have metadata identifying another List in the structure; dereferencing the pointer returns the item at the List index. With this mechanism, not only can tree data be constructed, but graphs with cycles as well. It also provides a way to compactly represent subsets of datasets, since a physicist's ``event list'' is a List$\langle$Pointer$\langle$Events$\rangle\rangle$.
+A particularly useful type is Pointer$\langle$X$\rangle$, which is an integer interpreted as a List index. In addition to having a type name that distinguishes it from ordinary integers, this type would have metadata identifying another List in the structure; dereferencing the pointer returns the item at the List index. With this mechanism, not only can tree data be constructed, but graphs with cycles as well. It also provides a way to compactly represent selected events from large datasets, since a physicist's ``event list'' is a List$\langle$Pointer$\langle$Events$\rangle\rangle$.
 
 \subsection{Objects to Arrays}
 
@@ -736,19 +736,54 @@ Therefore, any function that references Primitive, List, Union, and Record objec
 
 To see this as an alternative to deserialization, consider a scenario in which all arrays are in a binary file on disk that file has been memory-mapped to look like an array. When the transformed code accesses a structured object, it is actually reading values from disk. No additional representation of the data is created; the new function knows what to do from the raw byte values and proceeds as the old function would have with objects. We have skipped deserialization.
 
-\subsection{}
+\subsection{General strategy}
+
+Unlike SQL, procedural and functional programming languages can assign and possibly reassign variables, extract substructure as new variables, and pass them to other functions with new names. It is not sufficient to only transform symbols that coincide with prefix names, since parts of the data structure may be spread among user-defined variables. To avoid missing code that needs to be transformed, we must track the PLUR type of all symbols in the function.
+
+We therefore need a typed AST, in which PLUR types and prefixes are associated with any expression nodes that hold non-Primitive PLUR type. (Knowledge of other types is not necessary but also not harmful.) If the code to be transformed takes more than one prefixed object as input, the prefix must be propagated with the type so that references to the right arrays may be injected into the code. Code transformation and type propagation may be performed in a single sweep.
+
+There are several constraints on the code to be transformed. It cannot create or change PLUR objects, which is reasonable for an analysis procedure. It can use external functions, but if a PLUR object is passed as an argument to such a function, the code for that function must be accessible so that it can be transformed, too. If the same function is called in different places with different PLUR types or prefixes as arguments, multiple versions of the transformed function will be generated. These functions cannot be created or passed dynamically; their code must be accessible during the transformation sweep.
+
+The following AST nodes must be transformed:
+\begin{itemize}
+\item {\bf symbol reference}, which might be a PLUR object;
+\item {\bf assignment}, which might pass PLUR type to a new symbol;
+\item {\bf list subscript} (square brackets in most languages), which can dereference a PLUR List;
+\item {\bf attribute} (dot in most languages), which can dereference a PLUR Record;
+\item {\bf function calls}, which can pass PLUR types to a new function, widening the scope of the transformation sweep to include that function, and may return a PLUR type that must be tracked;
+\item {\bf special functions}, like {\tt len} (List length) and {\tt isinstance} (Union type) in Python, which have to be handled as special cases when called on PLUR types.
+\end{itemize}
 
 
 
 
 
+
+
+
+\subsection{Special cases and flourishes}
+
+equal/not equal (value equality)
+is/isnot (object equality by reference) is easy
+foreach and equivalents, like list comprehension
+sorted
+
+dynamic objects, like Python lists, dictionaries
+
+tuples for unpacking assignments
+
+recursion; type inference; PLUR has finite depth (except for pointers)
+
+index beyond PLUR List may be undefined, always checked at runtime, or guarded by propagating index constraints through the code: integers become integers with intervals of validity, {\tt len(list)} is symbolic, predicates and logical operators ({\tt and}, {\tt or}, {\tt not}) propagate intervals of validity, as do arithmetic operators ({\tt +}, {\tt -}, and {\tt *}), and {\tt if}-{\tt else} constrict them.
+
+these exceptional cases may cause a compilation error, raise an exception at runtime (unnecessary as most of the above would be known at compile-time), or invoke a conversion to objects following the arrays-to-objects algorithm
 
 
 \section{Implementation}
 
-\subsection{Python Implementation}
+\subsection{Python Code Transformations}
 
-\subsection{ROOT Interface}
+\subsection{Columnar Data from ROOT}
 
 \subsection{Performance Studies}
 
