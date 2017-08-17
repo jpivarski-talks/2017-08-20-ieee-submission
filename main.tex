@@ -71,7 +71,7 @@
 % \documentclass[conference]{../sty/IEEEtran}
 
 \usepackage{minted}
-
+\usepackage{mathtools}
 
 
 % Some very useful LaTeX packages include:
@@ -683,29 +683,36 @@ Pop the $\mbox{``-Ud''} + t$ from the beginning of all other array names associa
 
 If any other configuration of arrays and names is encountered, the arrays are malformed. If indexes go beyond the lengths of the arrays or do not perfectly end on the last element of each array, then the arrays are malformed.
 
-\subsection{Random access and persistent storage}
+\subsection{Random access and redundancy}
 
-The reason that List structures are represented by offsets (arrays whose names end in ``-Lo''), rather than sizes, is to permit random access. For instance, if we had a List$\langle$List$\langle$float$\rangle\rangle$ named with prefix ``x'' and we wanted the float at index $(i, j)$, we would compute
-\begin{center}
-x-Lo-Ld{\tt [}x-Lo-Lo{\tt [}x-Lo{\tt [0] + i] + j]}
-\end{center}
+The reason that List structures are represented by data offsets (arrays whose names end in ``-Lo''), rather than List lengths, is to permit random access. For instance, if we had a List$\langle$List$\langle$float$\rangle\rangle$ named with prefix ``x'' and we wanted the float at index $(i, j)$, we would compute
+\[ \mbox{x-Lo-Ld{\tt [}x-Lo-Lo{\tt [}x-Lo{\tt [}} 0 \mbox{\tt ]} + i \mbox{\tt ]} + j \mbox{\tt ]} \]
 At each level, the contents of the ``-Lo'' array are the starting indices of the next-deeper structure.
 
 In fact, if we want to reconstruct only one object in a List, we simply apply the arrays-to-objects procedure for that List's ``-Ld'' arrays with all indices starting at $i_a = i$.
 
-The information in an ``-Lo'' array could equivalently be stored as List sizes, rather than offsets. A size array x-Ls can be obtained from an offset array x-Lo by
-\begin{center}
-x-Ls{\tt [i]} {\tt =} x-Lo{\tt [i + 1]} {\tt -} x-Lo{\tt [i]}
-\end{center}
-for all {\tt i} except the last element of x-Lo, and vice-versa. The size array does not permit random access, but it consists of smaller values that may repeat, and are therefore more packable with variable length encodings and more compressible. It would be reasonable to store List structures as compressed, packed size arrays and read them into offset arrays on the fly.
+Random access is a useful feature, but it is less optimal for compression or variable-length integer encoding algorithms. If we wish to store or transmit a List structure in the fewest possible bytes, it should be converted into a corresponding size array (suffix ``-Ls''). For all $i \in [0, \mbox{ length of x-Lo} - 1)$,
+\[ \mbox{x-Ls{\tt [}} i \mbox{\tt ]} \coloneqq \mbox{x-Lo{\tt [}} i + 1 \mbox{\tt ]} - \mbox{x-Lo{\tt [}} i \mbox{\tt ]} \]
+and vice-versa. (The offset array is one element longer than the size array because we include the initial offset 0, which simplifies the code transformation in the next section.) A nice option would be to transfer or store List structures as size arrays for less redundancy, then expand as offset arrays for random access.
 
-The Union structure, as encoded in the previous section, is not random accessible. Data arrays for each type possibility $T_t$ are only filled if a datum of that type is observed, so each type possibility must be indexed by a different offset. The arrays-to-objects procedure described in the previous subsection manages that by walking sequentially over all data with different global indexes $i_a$ for each array.
+The Union structure, as encoded in the previous section, is not random accessible. Data arrays for each type possibility $T_t$ are only filled if a datum of that type is observed, so each type possibility must be indexed by a different offset. The arrays-to-objects procedure described in the previous subsection avoids this issue by walking over the data sequentially.
 
-To make Unions random accessible, we need to add a union offset array ``-Uo''. This can be generated 
+To make Unions random accessible, we need to add a union offset array ``-Uo''. This can be generated from the tag array ``-Ut'' by
+\begin{algorithmic}
+\vspace{0.15 cm}
+\STATE $i_t \coloneqq 0$ {\bf for all} $t \in [1, n]$
 
+\vspace{0.15 cm}
+\FOR{$i \in [0, \mbox{ length of x-Ut}]$}
+\STATE $t \coloneqq$ \mbox{x-Ut}{\tt [}$i${\tt ]}
+\STATE \mbox{x-Uo}{\tt [}$i${\tt ]} $\coloneqq i_t$
+\STATE $i_t \coloneqq i_t + 1$
+\ENDFOR
+\end{algorithmic}
 
+To reconstruct one Union object at index $i$, we find the tag $t$ at x-Ut{\tt [}$i${\tt ]} and follow the arrays-to-objects algorithm with the set of x-Ud$t$ arrays, all starting at index $i_t = \mbox{x-Uo{\tt [}}i\mbox{\tt]}$.
 
-
+This union offset array is entirely redundant: it can always be generated from a tag array. Therefore, it never needs to be transmitted or stored.
 
 \subsection{Relationship to Apache Arrow}
 
