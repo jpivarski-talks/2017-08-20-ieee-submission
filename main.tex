@@ -848,16 +848,11 @@ More generally than Python's tuple-unpacking, your target language may feature p
 
 \subsubsection{Equality and order}
 
-PLUR objects have a natural definition for equality
+PLUR objects have a natural definition for value-based equality, so you may want to support the {\tt ==} operator as a recursive object comparison. Reference-based equality (``{\it is}'' in Python) is even easier: just verify that the indices are equal (in Python, replace ``{\it ==}'' with ``{\it is}'').
 
+For equal types, there may be a natural ordering as well--- Python defines an ordering on structures like Lists and Records. You can similarly support inequality operators and the ``{\tt sorted}'' function.
 
-
-equal/not equal (value equality)
-is/isnot (object equality by reference) is easy
-sorted
-
-
-these exceptional cases may cause a compilation error, raise an exception at runtime (unnecessary as most of the above would be known at compile-time), or invoke a conversion to objects following the arrays-to-objects algorithm
+HERE
 
 
 \section{Implementation}
