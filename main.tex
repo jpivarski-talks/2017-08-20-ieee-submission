@@ -890,24 +890,20 @@ ROOT is a C++ framework providing an object-oriented interface, so we also had t
 
 \subsection{Performance Studies}
 
-The goal of this and the HEPQuery project is to make HEP analysis 
+The goal of this and the HEPQuery project is to make HEP analysis easier to develop and faster to run. We believe that broad type abstractions like PLUR and concise syntax like Python's are easier for data analysts to work with, especially when they are exploring a dataset and focusing on physics and statistics issues, not programming. We also intend to make that interface a performance improvement over idiomatic, object-oriented C++, so that analysts don't have to translate analysis code from a high-level language to a low-level one just to process a large dataset in a reasonable time. This is the allure of databases: SQL is as abstract as set theory and yet it is also faster than most procedural code.
+
+For this reason, we have been performance-testing PLUR all through its development, to avoid mistakes, and now perform an even-handed performance comparison between transformed PLUR code and industry-standard C++ in ROOT. We also break down the differences as much as possible to show where they come from. In doing so, we show that highly tweaked C++ is faster than PLUR, but this is not characteristic of what data analysts would write.
+
+The study measures the time to compute masses of pairs of distinct muons in a collection of HEP collision events (simulated CMS experiment, Drell-Yan process). This is the second example from this paper's motivation, which was too cumbersome for SQL (would require a full outer join). One version of the function is written in Python and transformed by PLUR and Numba to bytecode, the other is written in C++, expecting events and muons to be instances of C++ classes. Both are executed on the same ROOT dataset, extracting arrays for PLUR and using ROOT's built-in deserialization for C++. The dataset is located on a fast SSD disk on an AWS instance, and we use vmtouch\cite{vmtouch} to control whether the data are completely in or completely out of virtual memory.
+
+{\bf FIXME:} actually do the study. I've set up the parameters of the test before doing it, which is good--- almost like a blinded analysis. But I still have to do it.
+
+\section{Conclusions}
 
 
 
 
 
-easier and faster. ``Easier'' in the sense that data analysts can write high-level Python (or someday declarative) code rather than C++ and ``faster'' in the sense that they not only avoid a performance penalty but can enjoy greater performance with the high-level code. This is the allure of databases: SQL is as abstract as set theory and yet it outperforms most attempts at C++.
-
-For this reason, we have been performance-testing PLUR all through its development, to avoid mistakes, and now provide a 
-
-
-
-
-
-
-FIXME: one last performance study here, to make it as even-handed as possible with a well-defined methodology.
-
-\subsection{Applications}
 
 event and non-event data, lookup tables
 
@@ -915,7 +911,8 @@ query server
 
 column granularity: virtual datasets, event lists
 
-\section{Conclusions}
+
+
 
 \section*{Acknowledgment}
 
