@@ -43,9 +43,9 @@
      inkscape:window-height="1027"
      id="namedview2989"
      showgrid="false"
-     inkscape:zoom="1.3037281"
-     inkscape:cx="238.99749"
-     inkscape:cy="220.5008"
+     inkscape:zoom="3.6875"
+     inkscape:cx="418.8556"
+     inkscape:cy="75.052443"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="0"
@@ -141,11 +141,6 @@
        id="tspan3883"
        x="94.536583"
        y="461.97412">0</tspan></text>
-  <path
-     style="color:#000000;fill:none;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
-     d="m 558.35069,456.48613 -453.69889,0"
-     id="path3885"
-     inkscape:connector-curvature="0" />
   <path
      inkscape:connector-curvature="0"
      id="path3887"
@@ -412,4 +407,9 @@
        id="tspan3919"
        x="-129.79143"
        y="22.91328">Rate in MHz (higher is better)</tspan></text>
+  <path
+     style="color:#000000;fill:none;stroke:#000000;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
+     d="m 558.35069,456.48613 -453.69889,0"
+     id="path3885"
+     inkscape:connector-curvature="0" />
 </svg>
