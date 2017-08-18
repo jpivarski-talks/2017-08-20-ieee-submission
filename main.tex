@@ -893,21 +893,21 @@ The goal of this and the HEPQuery project is to make HEP analysis easier to deve
 
 For this reason, we have been performance-testing PLUR all through its development, to avoid mistakes, and now perform an even-handed performance comparison between transformed PLUR code and industry-standard C++ in ROOT. We also break down the differences as much as possible to show where they come from. In doing so, we show that highly tweaked C++ is faster than PLUR, but this is not characteristic of what data analysts would write.
 
-The study measures the time to compute masses of pairs of distinct muons in a collection of HEP collision events (simulated CMS experiment, Drell-Yan process). This is the second example from this paper's motivation, which was too cumbersome for SQL (would require a full outer join). One version of the function is written in Python and transformed by PLUR and Numba to bytecode, the other is written in C++, expecting events and muons to be instances of C++ classes. Both are executed on the same ROOT dataset, extracting arrays for PLUR and using ROOT's built-in deserialization for C++. The dataset is located on a fast SSD disk on an AWS instance, and we use vmtouch\cite{vmtouch} to control whether the data are completely in or completely out of virtual memory.
+%% The study measures the time to compute masses of pairs of distinct muons in a collection of HEP collision events (simulated CMS experiment, Drell-Yan process). This is the second example from this paper's motivation, which was too cumbersome for SQL (would require a full outer join). One version of the function is written in Python and transformed by PLUR and Numba to bytecode, the other is written in C++, expecting events and muons to be instances of C++ classes. Both are executed on the same ROOT dataset, extracting arrays for PLUR and using ROOT's built-in deserialization for C++. The dataset is located on a fast SSD disk on an AWS instance, and we use vmtouch\cite{vmtouch} to control whether the data are completely in or completely out of virtual memory.
 
-{\bf FIXME:} actually do the study. I've set up the parameters of the test before doing it, which is good--- almost like a blinded analysis. But I still have to do it.
+%% {\bf FIXME:} actually do the study. I've set up the parameters of the test before doing it, which is good--- almost like a blinded analysis. But I still have to do it.
 
 \begin{figure}[!t]
 \centering
 \includegraphics[width=\linewidth]{root-and-plur.pdf}
-\caption{Simulation Results}
+\caption{Stuff\ldots}
 \label{root-and-plur}
 \end{figure}
 
 \begin{figure}[!t]
 \centering
 \includegraphics[width=\linewidth]{physical-media.pdf}
-\caption{Simulation Results}
+\caption{\ldots and Things}
 \label{physical-media}
 \end{figure}
 
