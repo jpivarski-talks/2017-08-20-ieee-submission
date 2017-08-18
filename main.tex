@@ -127,7 +127,7 @@
 % *** GRAPHICS RELATED PACKAGES ***
 %
 \ifCLASSINFOpdf
-  % \usepackage[pdftex]{graphicx}
+  \usepackage[pdftex]{graphicx}
   % declare the path(s) where your graphic files are
   % \graphicspath{{../pdf/}{../jpeg/}}
   % and their extensions so you won't have to specify these with
@@ -137,7 +137,7 @@
   % or other class option (dvipsone, dvipdf, if not using dvips). graphicx
   % will default to the driver specified in the system graphics.cfg if no
   % driver is specified.
-  % \usepackage[dvips]{graphicx}
+  \usepackage[dvips]{graphicx}
   % declare the path(s) where your graphic files are
   % \graphicspath{{../eps/}}
   % and their extensions so you won't have to specify these with
@@ -275,7 +275,7 @@
 % IEEEtran.cls handing of captions. Version 1.3 (2005/06/28) and later 
 % (recommended due to many improvements over 1.2) of subfig.sty supports
 % the caption=false option directly:
-%\usepackage[caption=false,font=footnotesize]{subfig}
+% \usepackage[caption=false,font=footnotesize]{subfig}
 %
 % The latest version and documentation can be obtained at:
 % http://www.ctan.org/tex-archive/macros/latex/contrib/subfig/
@@ -897,6 +897,23 @@ For this reason, we have been performance-testing PLUR all through its developme
 The study measures the time to compute masses of pairs of distinct muons in a collection of HEP collision events (simulated CMS experiment, Drell-Yan process). This is the second example from this paper's motivation, which was too cumbersome for SQL (would require a full outer join). One version of the function is written in Python and transformed by PLUR and Numba to bytecode, the other is written in C++, expecting events and muons to be instances of C++ classes. Both are executed on the same ROOT dataset, extracting arrays for PLUR and using ROOT's built-in deserialization for C++. The dataset is located on a fast SSD disk on an AWS instance, and we use vmtouch\cite{vmtouch} to control whether the data are completely in or completely out of virtual memory.
 
 {\bf FIXME:} actually do the study. I've set up the parameters of the test before doing it, which is good--- almost like a blinded analysis. But I still have to do it.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\linewidth]{root-and-plur.pdf}
+\caption{Simulation Results}
+\label{root-and-plur}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\linewidth]{physical-media.png}
+\caption{Simulation Results}
+\label{physical-media}
+\end{figure}
+
+
+
 
 \section{Conclusions}
 
