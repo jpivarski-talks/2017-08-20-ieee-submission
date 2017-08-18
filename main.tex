@@ -600,15 +600,15 @@ CREATE TABLE events (
 \end{minted}
 
 \vspace{0.15 cm}
-\noindent Often the first exploratory action in a HEP analysis is to plot a distribution of the highest particle {\tt\small pt} {\it per event.} We could do that in SQL by exploding the {\tt\small muons} into a virtual table and aggregating the maximum {\tt\small pt}, grouped by {\tt\small eventId}. If the execution engine loses track of the fact that unique values of {\tt\small eventId} are contiguous in the exploded table, the query would unnecessarily search the entire dataset for {\tt\small eventId} matches. A Python or C++ program would not.
+\noindent Often the first exploratory action in a HEP analysis is to plot a distribution of the highest particle {\tt pt} {\it per event.} We could do that in SQL by exploding the {\tt muons} into a virtual table and aggregating the maximum {\tt pt}, grouped by {\tt eventId}. If the execution engine loses track of the fact that unique values of {\tt eventId} are contiguous in the exploded table, the query would unnecessarily search the entire dataset for {\tt eventId} matches. A Python or C++ program would not.
 
-The second action a HEP analyst usually takes is to compute masses from {\tt\small pt}, {\tt\small eta}, and {\tt\small phi} of pairs of particles\footnote{$\sqrt{2 {p_1}^{p_T} {p_2}^{p_T} (\cosh({p_1}^\eta - {p_2}^\eta) - \cos({p_1}^\phi - {p_2}^\phi))}$ for $p_1$ and $p_2$}, to see if any were the decay products of a short-lived intermediary. Candidates for such a decay would always be found in the same event, so this query in SQL would involve a full outer join on two exploded {\tt\small muons} tables or exploded {\tt\small muons} and exploded {\tt\small jets}, subject to equal {\tt\small eventId}. In this case, it is even more important that the uniqueness of {\tt\small eventId} is tracked, since a join across a distributed database can be very expensive.
+The second action a HEP analyst usually takes is to compute masses from {\tt pt}, {\tt eta}, and {\tt phi} of pairs of particles\footnote{$\sqrt{2 {p_1}^{p_T} {p_2}^{p_T} (\cosh({p_1}^\eta - {p_2}^\eta) - \cos({p_1}^\phi - {p_2}^\phi))}$ for $p_1$ and $p_2$}, to see if any were the decay products of a short-lived intermediary. Candidates for such a decay would always be found in the same event, so this query in SQL would involve a full outer join on two exploded {\tt muons} tables or exploded {\tt muons} and exploded {\tt jets}, subject to equal {\tt eventId}. In this case, it is even more important that the uniqueness of {\tt eventId} is tracked, since a join across a distributed database can be very expensive.
 
 HEP data manipulations only get more complex from there. The problem is that the hierarchically nested schema is a poor fit to the relational model for which SQL was designed. Tree-like, nested data are much easier to deal with in a procedural or functional language, particularly one with object-oriented features.
 
 However, sequentially iterating over a large set of objects and applying a user defined function to each can be much slower than a database query, even when parallelized. Databases enjoy several advantages: (1) indexing by primary keys, (2) columnar data layout, and (3) code manipulation (``term rewriting''). Indexing is beyond the scope of this paper, but columnar data layouts are increasingly being used to store hierarchical data. Code manipulation of general purpose programming languages is only common at the compiler level, but data analysis frameworks are beginning to use Just-In-Time (JIT) compilation and metaprogramming in their workflows.
 
-ROOT\cite{root}, the HEP analysis framework, was first to store hierarchical data structures as columns. The ROOT file format (in ``split mode'') stores primitive attributes adjacent to one another on disk, e.g.\ all muon {\tt\small pt} values, followed by all muon {\tt\small eta} values, etc. Google independently developed Dremel\cite{dremel}, on which Apache Parquet is based. Spark 2.0 and Apache Arrow extend this concept to data in memory, and each has seen substantial increases in data throughput when switching to a columnar layout, especially for processes that access only a few of the attributes.
+ROOT\cite{root}, the HEP analysis framework, was first to store hierarchical data structures as columns. The ROOT file format (in ``split mode'') stores primitive attributes adjacent to one another on disk, e.g.\ all muon {\tt pt} values, followed by all muon {\tt eta} values, etc. Google independently developed Dremel\cite{dremel}, on which Apache Parquet is based. Spark 2.0 and Apache Arrow extend this concept to data in memory, and each has seen substantial increases in data throughput when switching to a columnar layout, especially for processes that access only a few of the attributes.
 
 JIT compilation is central to machine learning tools like H2O\cite{h2o} and Theano\cite{theano}, Julia\cite{julia}, a scientific programming language, as well as ROOT. To our knowledge, however, none of these manipulate the user's code to match the structure of columnar data.
 
@@ -621,6 +621,7 @@ In fact, code transformation could be seen as a general alternative to object de
 We begin by describing the scope of data types we are considering. To simplify the transformations, we restrict this set as much as possible while still being useful. In particular, the data types described here only encode data; they don't determine how data are used, such as which functions can be legally called on them. However, an interpretation layer can be overlaid on this representation without affecting the format or code transformations.
 
 \subsection{Type System}
+\label{type-system}
 
 The set of possible types is generated by four constructors:
 \begin{itemize}
@@ -635,7 +636,7 @@ One thing to notice is that this system does not allow for recursively defined t
 
 Another thing to notice is that Records are not named, as structs and classes are in C++. This allows for flexible structural typing, in which the only criteria for a type to be accepted as the argument to a function is that it has the minimum set of fields. If stronger type safety is desired, extra metadata can be added to the type description to indicate type names and/or subclass relationships.
 
-In the same way, names can distinguish a raw List$\langle$char$\rangle$ from a String or even a UTF8String, which should be interpreted in different ways by user code. Similarly, nullable data can be represented as an Option$\langle$X$\rangle$, which is a List$\langle$X$\rangle$ that only allows zero (empty, null) or one (filled) elements.
+As a concrete example, names can distinguish a raw List$\langle$uint8$\rangle$ from a String or even a UTF8String, which should be interpreted in different ways by user code. Similarly, nullable data can be represented as an Option$\langle$X$\rangle$, which is a List$\langle$X$\rangle$ that only allows zero (empty, null) or one (filled) elements.
 
 A particularly useful type is Pointer$\langle$X$\rangle$, which is an integer interpreted as a List index. In addition to having a type name that distinguishes it from ordinary integers, this type would have metadata identifying another List in the structure; dereferencing the pointer returns the item at the List index. With this mechanism, not only can tree data be constructed, but graphs with cycles as well. It also provides a way to compactly represent selected events from large datasets, since a physicist's ``event list'' is a List$\langle$Pointer$\langle$Events$\rangle\rangle$.
 
@@ -683,19 +684,20 @@ Pop the $\mbox{``-Ud''} + t$ from the beginning of all other array names associa
 
 If any other configuration of arrays and names is encountered, the arrays are malformed. If indices go beyond the lengths of the arrays or do not perfectly end on the last element of each array, then the arrays are malformed.
 
-\subsection{Random access and redundancy}
+\subsection{Random Access and Redundancy}
+\label{random-access-and-redundancy}
 
 The reason that List structures are represented by data offsets (arrays whose names end in ``-Lo''), rather than List lengths, is to permit random access. For instance, if we had a List$\langle$List$\langle$float$\rangle\rangle$ named with prefix ``x'' and we wanted the float at index $(i, j)$, we would compute
 \[ \mbox{x-Lo-Ld{\tt [}x-Lo-Lo{\tt [}x-Lo{\tt [}} 0 \mbox{\tt ]} + i \mbox{\tt ]} + j \mbox{\tt ]} \]
 At each level, the contents of the ``-Lo'' array are the starting indices of the next-deeper structure.
 
-In fact, if we want to reconstruct only one object in a List, we simply apply the arrays-to-objects procedure for that List's ``-Ld'' arrays with all indices starting at $i_a = i$.
+In fact, if we want to reconstruct only one object in a List, we simply apply the arrays-to-objects algorithm for that List's ``-Ld'' arrays with all indices starting at $i_a = i$.
 
 Random access is a useful feature, but this offset array is not optimal for compression or variable-length integer encoding algorithms. If we wish to store or transmit a List structure in the fewest possible bytes, it should be converted into a corresponding size array (suffix ``-Ls''). For all $i \in [0, \mbox{ length of x-Lo} - 1)$,
 \[ \mbox{x-Ls{\tt [}} i \mbox{\tt ]} \coloneqq \mbox{x-Lo{\tt [}} i + 1 \mbox{\tt ]} - \mbox{x-Lo{\tt [}} i \mbox{\tt ]} \]
 and vice-versa. (The offset array is one element longer than the size array because we include the initial offset 0, which simplifies the code transformation in the next section.) A nice option would be to transfer or store List structures as size arrays for less redundancy, then expand as offset arrays for random access.
 
-The Union structure, as described so far, is not random accessible. Data arrays for each type possibility $T_t$ are only filled if a datum of that type is observed, so each type possibility must be indexed by a different offset. The arrays-to-objects procedure described in the previous subsection avoids this issue by walking over the data sequentially.
+The Union structure, as described so far, is not random accessible. Data arrays for each type possibility $T_t$ are only filled if a datum of that type is observed, so each type possibility must be indexed by a different offset. The arrays-to-objects algorithm described in the previous subsection avoids this issue by walking over the data sequentially.
 
 To make Unions random accessible, we need to add a union offset array ``-Uo''. This can be generated from the tag array ``-Ut'' by
 \begin{algorithmic}
@@ -736,7 +738,7 @@ Therefore, any function that references Primitive, List, Union, and Record objec
 
 To see this as an alternative to deserialization, consider a scenario in which all arrays are in a binary file on disk that has been memory-mapped to look like an array. When the transformed code accesses a structured object, it is actually reading values from disk. No additional representation of the data is created; the new function knows what to do from the raw byte values and proceeds as the old function would have with objects. We have skipped deserialization.
 
-The technique described below can be applied to code written in any language, but all of the explicit examples are for Python code because our reference implementation\cite{plur} transforms Python code.
+The technique described below can be applied to code written in any language, but all of the explicit examples are for Python code because our implementation\cite{plur} transforms Python code.
 
 \subsection{General Strategy}
 
@@ -820,9 +822,9 @@ The type or types to check must be known as literal names, not computed referenc
 
 \subsection{Flourishes}
 
-Depending on your needs, you can provide more or less support for PLUR objects in the transformed code. The only requirement is that the transformed code either works exactly as object-oriented code would or fails to be transformed (compilation error).
+Depending on your needs, you can provide more or less support for PLUR objects in the transformed code. The only invariant is that the transformed code must either work exactly as object-oriented code would or fail to be transformed (compilation error).
 
-\subsubsection{List overflows}
+\subsubsection{List Overflows}
 
 One special case requires special attention: what to do about List index overflows? In the minimal transformation described above, PLUR List overflows behave like C array overflows, in that they return undefined results. The errors are less obvious and therefore more dangerous than typical C array overflows because PLUR values just beyond a List's boundary belong to the same attribute in the next List, so they probably have the right scale and distribution, subtly biasing analysis results.
 
@@ -830,38 +832,80 @@ A simple way to eliminate mistakes like this is to add a range check to the tran
 
 Since we are performing type-inference anyway, we could track intervals of validity for expressions that appear in list subscripts. This is known as a dependent type check, and for our case the validity endpoints should be symbolic: literal integers or $\ell_T$ symbols for the length of List type/array prefix $T$. The symbolic algebra includes only inequality operators, addition and subtraction, logical operators, and restrictions in {\tt if}-{\tt else} blocks. If the expression in a list subscript is not provably between 0 (inclusive) and $\ell_T$ (exclusive), a compilation error warns the user of the possibility of List overflows and refuses to transform the code.
 
-\subsubsection{Pythonic indexes}
+\subsubsection{Pythonic Indexes}
 
 Negative index handling in Python would be another flourish, which only slightly complicates the above.
 
-\subsubsection{Eliminating zero-lookups}
+\subsubsection{Fixed-size Arrays and Matrices}
 
-As an optimization, one can statically identify array lookups that always return zero: the first element of every list offset array is zero, and the outermost list offset array has exactly two elements, only the first is dereferenced by list subscripting. Without removing this unnecessary code, it will be executed for every element of a large List. (PLUR-unaware compilers cannot remove it.)
+PLUR Lists can have any length, which includes a constant length, at the expense of having redundant offset arrays. The size array for a fixed-length List is filled with identical values, which is very compressible, but must be expanded to full length for random access.
 
-\subsubsection{Type constructors}
+It would be possible to add the concept of a fixed-length List to the type system, along with a naming convention so that this type can be encoded in array names, rather than arrays. In place of an array lookup in the transformed code, one would insert a literal multiplcation.
+
+\subsubsection{Eliminating Zero-Lookups}
+
+As an optimization, one can statically identify array lookups that always return zero: the first element of every list offset array is zero, and the outermost list offset array is always evaluated at its first element. Without explicitly removing it, this unnecessary code would be executed at every step in an iteration over a List. (PLUR-unaware compilers cannot remove it.)
+
+\subsubsection{Type Constructors}
 
 As stated above, passing a non-Primitive PLUR object to any unrecognized function is a compilation error. This especially includes constructors for dynamic objects like Python lists and dictionaries, since we cannot statically track where they are used. However, you may wish to allow some immutable objects to include PLUR objects, such as Python tuples to use Python tuple-unpacking in assignments. You then become obliged, however, to track these objects as containing PLUR types.
 
-\subsubsection{Pattern matching}
+\subsubsection{Pattern Matching}
 
 More generally than Python's tuple-unpacking, your target language may feature pattern-matching, and you may need to track PLUR types through syntactical structures like these.
 
-\subsubsection{Equality and order}
+\subsubsection{Equality and Order}
 
-PLUR objects have a natural definition for value-based equality, so you may want to support the {\tt ==} operator as a recursive object comparison. Reference-based equality (``{\it is}'' in Python) is even easier: just verify that the indices are equal (in Python, replace ``{\it ==}'' with ``{\it is}'').
+PLUR objects have a natural definition for value-based equality, so you may want to support the {\tt ==} operator as a recursive object comparison. Reference-based equality (``{\tt is}'' in Python) is even easier: just verify that the indices are equal (in Python, replace ``{\tt ==}'' with ``{\tt is}'').
 
-For equal types, there may be a natural ordering as well--- Python defines an ordering on structures like Lists and Records. You can similarly support inequality operators and the ``{\tt sorted}'' function.
+For identical types, there may be a natural ordering as well: Python defines an ordering on structures like Lists and Records. You can similarly support inequality operators and the ``{\tt sorted}'' function.
 
-HERE
+\subsubsection{Fallback to Object Materialization}
 
+One way to support particularly difficult cases, such as external functions without code transformation, is by materializing objects using the arrays-to-objects algorithm. This gives up on zero-copy efficiency, but it may be worthwhile to mix fast code with expressive code. Then rather than new features allowing more user code to function, new features would allow the functioning user code to run faster.
+
+\subsubsection{Runtime Types}
+
+As described in Section~\ref{type-system}, basic types described only in terms of Primitive, List, Union, and Record generators should be augmented by higher-level interpretations of these types, distinctions that are relevant for runtime behavior, not data packing. These runtime types would be implemented at this level.
+
+For instance, a String or UTF8String type would be admissible to functions that {\tt capitalize} and {\tt lower}, but List$\langle$uint8$\rangle$ would not. The former would be implemented as a special function, like {\tt len} and {\tt isinstance}. Pointers should either be transparently dereferenced (can cause infinite loops) or opaquely with a special function or syntax.
 
 \section{Implementation}
 
-\subsection{Python Code Transformations}
+We are developing PLUR and code transformation tools\cite{plur} for use in a HEP query system\cite{hepquery}. The code is in an early but usable state as documented by the text on the GitHub READMEs.
+
+Both are Python projects, and the code transformation implemented in the PLUR package is written in Python, transforming Python code. The short-term goal is to build a query system that uses Python as its query language, with a long term goal of developing a declarative query language on top of PLUR.
+
+\subsection{Pythonic PLUR}
+
+All of the ``required transformations'' (described above) have been implemented except for function calls and the {\tt isinstance} special function. Of the ``flourishes,'' zero-lookups have been eliminated and tuple-unpacking assignments have been implemented. The problem of implementing Union symbol references has been solved by passing nested closures through the transformation sweep.
+
+This PLUR package optionally passes the transformed code to Numba\cite{numba} for an even greater speedup. Although Numba's conversion of Python code to native bytecode results in a much larger speedup factor than PLUR's transformation step, the Numba step wouldn't be possible without it. The PLUR transformation replaces opaque Python objects with integers and array lookups, which fit squarely in Numba's vocabulary.
 
 \subsection{Columnar Data from ROOT}
 
+The ROOT file format is the universal standard for HEP. Fortunately for our application, ROOT can store hierarchical data in a columnar fashion, smoothing the transition to PLUR. Most of these arrays can be imported without modification. The one exception is that Lists are represented in ROOT with size arrays, rather than offset arrays, so we apply the transformation described in Section~\ref{random-access-and-redundancy}.
+
+ROOT is a C++ framework providing an object-oriented interface, so we also had to bypass part of its deserialization procedure to get the raw arrays directly into PLUR. In a fork of the ROOT project, we added methods to {\tt TBranch} (ROOT's data column) to extract arrays after decompression but before object materialization, as well as methods to expose these as Numpy arrays in Python. These new methods are being merged into the main ROOT repository with the intention of being included in ROOT version 6.12.
+
 \subsection{Performance Studies}
+
+The goal of this and the HEPQuery project is to make HEP analysis 
+
+
+
+
+
+easier and faster. ``Easier'' in the sense that data analysts can write high-level Python (or someday declarative) code rather than C++ and ``faster'' in the sense that they not only avoid a performance penalty but can enjoy greater performance with the high-level code. This is the allure of databases: SQL is as abstract as set theory and yet it outperforms most attempts at C++.
+
+For this reason, we have been performance-testing PLUR all through its development, to avoid mistakes, and now provide a 
+
+
+
+
+
+
+FIXME: one last performance study here, to make it as even-handed as possible with a well-defined methodology.
 
 \subsection{Applications}
 
@@ -872,6 +916,10 @@ query server
 column granularity: virtual datasets, event lists
 
 \section{Conclusions}
+
+\section*{Acknowledgment}
+
+Thanks to\ldots?
 
 \bibliographystyle{IEEEtran}
 \bibliography{IEEEabrv,mybibliography}
