@@ -889,11 +889,11 @@ ROOT is a C++ framework providing an object-oriented interface, so we also had t
 
 \subsection{Performance Studies}
 
-The goal of this and the HEPQuery project is to make HEP analysis easier to develop and faster to run. We believe that broad type abstractions like PLUR and concise syntax like Python's are easier for data analysts to work with, especially when they are exploring a dataset and focusing on physics and statistics issues, not programming. We also intend to make that interface a performance improvement over idiomatic, object-oriented C++, so that analysts don't have to translate analysis code from a high-level language to a low-level one just to process a large dataset in a reasonable time. This is the allure of databases: SQL is as abstract as set theory and yet it is also faster than most procedural code.
+The goal of this and the HEPQuery project is to make HEP analysis easier to develop and faster to run. We believe that broad type abstractions like PLUR and concise syntax like Python's are easier for data analysts to work with, especially when they are exploring a dataset and focusing on physics and statistics issues, rather than programming. We also intend to make the system as fast as or faster than idiomatic, object-oriented C++, so that analysts don't have to translate analysis code from a high-level language to a low-level one just to process a large dataset in a reasonable time. This is the allure of databases: SQL is as abstract as set theory and yet it is also faster than most procedural code.
 
 For this reason, we have been performance-testing PLUR all through its development, to avoid introducing performance gaffes at an early stage, and now perform an even-handed performance comparison between transformed PLUR code and industry-standard C++ in ROOT. We also break down the differences as much as possible to show where they come from.
 
-We consider four sample analysis functions, two of which are from the motivation of this paper. The first computes the maximum {\tt pt} per event
+We consider four sample analysis functions, two of which (``max p$_{\mbox{\scriptsize T}}$'' and ``mass of pairs'') are described in the motivation of this paper. Listings are given in Figure~\ref{four-functions}.
 
 \begin{figure}
 \scriptsize
@@ -1007,8 +1007,22 @@ for (i=0; i < n; i++)
 \end{minipage}%
 \end{minipage}
 
-\caption{\label{} Four }
+\caption{\label{four-functions} Sample analysis functions in Python (before code transformation) and object-oriented C++, showing only the body of the loop over events.}
 \end{figure}
+
+The first, ``max p$_{\mbox{\scriptsize T}}$,'' is an example of a query that would be difficult but not impossible in SQL. Instead of exploding a muons table and grouping by a unique {\tt eventId}, we keep a running maximum that resets in each event.
+
+The second, ``eta of best by p$_{\mbox{\scriptsize T}}$,'' is an extension of that idea: we select a muon by maximizing {\tt pt} and then plot its {\tt eta}. This is even more awkward in SQL, but very common in HEP.
+
+In the listing, note that {\tt best}, which is a muon object, is initialized as $-1$ in Python and {\tt nullptr} in C++. The current implementation of the code transformer is missing a concept of ``undefined variable.'' It is also missing a thorough check on pre-transformation data types, so it doesn't complain about a variable being $-1$ in some cases and a Record object in others. Post-transformation, it is an array index, so $-1$ is allowed and doesn't correspond to any real objects. This is a leaky abstraction and will be corrected in future versions, but convenient for performance testing now.
+
+The third function, ``mass of pairs,'' would require a full outer join in SQL but is a nested for loop in Python and C++, carefully indexed to avoid duplication. This kind of loop is such a common case that a HEP toolbox ought to have a built-in generator for it. The formula for {\tt mass} is complex, but it is one of the most frequently calculated quantities in HEP.
+
+The fourth, ``p$_{\mbox{\scriptsize T}}$ sum of pairs,'' is a diagnostic of the third. As we will show below, the mass calculation is the slowest of the samples, and it was unclear whether the nested indexing was responsible or the complex formula. This function has the same nesting structure but a simpler formula (which is occasionally useful in HEP).
+
+
+
+
 
 
 
