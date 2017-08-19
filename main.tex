@@ -933,7 +933,7 @@ for muon in event.muons:
     maximum = muon.pt
     best = muon
 if best != -1:
-  fill_histogram(maximum)
+  fill_histogram(best.eta)
 \end{minted}
 \end{minipage}
 \begin{minipage}[c][2.6cm][t]{0.25\linewidth}
