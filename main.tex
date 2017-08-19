@@ -342,6 +342,8 @@
 % (Unless specifically asked to do so by the journal or conference you plan
 % to submit to, of course. )
 
+\usepackage{flushend}
+
 
 % correct bad hyphenation here
 \hyphenation{op-tical net-works semi-conduc-tor}
@@ -1018,45 +1020,59 @@ In the listing, note that {\tt best}, which is a muon object, is initialized as 
 
 The third function, ``mass of pairs,'' would require a full outer join in SQL but is a nested for loop in Python and C++, carefully indexed to avoid duplication. This kind of loop is such a common case that a HEP toolbox ought to have a built-in generator for it. The formula for {\tt mass} is complex, but it is one of the most frequently calculated quantities in HEP.
 
-The fourth, ``p$_{\mbox{\scriptsize T}}$ sum of pairs,'' is a diagnostic of the third. As we will show below, the mass calculation is the slowest of the samples, and it was unclear whether the nested indexing was responsible or the complex formula. This function has the same nesting structure but a simpler formula (which is occasionally useful in HEP).
+The fourth, ``p$_{\mbox{\scriptsize T}}$ sum of pairs,'' is a diagnostic of the third. As we will show below, the mass calculation is the slowest of the sample functions, and it was unclear whether the nested indexing was responsible or the complex formula. This function has the same nesting structure but a simpler formula (which is occasionally useful in HEP).
 
+We ran each analysis function on a 5.4 million event dataset of simulated Drell-Yan collisions (a realistic physics sample, one of about a dozen that might be involved in a real HEP analysis). The tests were performed on an {\tt i2.xlarge} instance on Amazon Web Services, which features a large, fast SSD (hundreds of MB/second, not a bottleneck in our tests).
 
+Both tests, Python and C++, used ROOT to read the same data files. However, the Python test used a new ``BulkIO'' feature of ROOT, which extracts and decompresses columnar array data but does not construct event objects. The C++ code used the conventional interface, which further deserializes the columnar arrays as C++ objects.
 
+One thing that ROOT's conventional interface does not do (but in general a framework might) is allocate memory for the event and muon objects during the event loop. This was recognized as a bottleneck early in ROOT's development, so ROOT's default is to preallocate a buffer of 1000 muons and overwrite them at the start of each event, reallocating the buffer if necessary. (This never happened in our sample; the maximum number of muons was 36.)
 
+Also, to avoid decompression or physical access being a dominant contributor to all tests, we prepared an uncompressed sample and put it in the Linux page cache with vmtouch\cite{vmtouch}. This lets us see the differences due to other factors more clearly.
 
+Both tests were single-threaded and had plenty of working space memory.
 
-
-
-%% The study measures the time to compute masses of pairs of distinct muons in a collection of HEP collision events (simulated CMS experiment, Drell-Yan process). This is the second example from this paper's motivation, which was too cumbersome for SQL (would require a full outer join). One version of the function is written in Python and transformed by PLUR and Numba to bytecode, the other is written in C++, expecting events and muons to be instances of C++ classes. Both are executed on the same ROOT dataset, extracting arrays for PLUR and using ROOT's built-in deserialization for C++. The dataset is located on a fast SSD disk on an AWS instance, and we use vmtouch\cite{vmtouch} to control whether the data are completely in or completely out of virtual memory.
-
-%% {\bf FIXME:} actually do the study. I've set up the parameters of the test before doing it, which is good--- almost like a blinded analysis. But I still have to do it.
+The results of the study are shown in Figure~\ref{root-and-plur}. The shorthand ``ROOT'' signifies a conventional ROOT workflow, using C++ user code, and ``PLUR'' is our workflow that uses ROOT's new BulkIO interface to expose columnar data as arrays and then runs code-transformed Python code on those arrays.
 
 \begin{figure}[!t]
 \centering
 \includegraphics[width=\linewidth]{root-and-plur.pdf}
-\caption{Stuff\ldots}
+\caption{Event processing rates, including read and execute times, for 5.4 million events in the test sample. Grouped bars indicate different analysis functions and colors indicate different workflows. See the text for details.}
 \label{root-and-plur}
 \end{figure}
+
+The four colors signify variants on this workflow. ``ROOT full dataset'' means we let ROOT fill all 42 attributes of the Muon objects, which is clearly unnecessary for our functions. The event processing rate for this case is 0.4~MHz, regardless of the content of the function. Reading and filling the objects overwhelms all other factors.
+
+``ROOT selective on full'' uses ROOT's built-in mechanism to avoid filling all attributes in the objects, but still used the 42-field object definitions and original data file. The event processing rate is 1.29~MHz, regardless of the function. Handling all of the attributes still dominates.
+
+``ROOT slim dataset'' performs the same selective read on a specially prepared dataset and object definition that has only 3 fields: {\tt pt}, {\tt eta}, and {\tt phi}. We now see different rates for the four functions: 6.68, 5.96, 3.56, and 6.34~MHz.
+
+``PLUR full dataset'' is the only test in this batch that uses transformed Python code. It accesses the full dataset (slim dataset yields similar results) and is unaffected by deserialization because the transformed function recognizes the relevant parts of the data arrays on the fly. The four functions are processed at 17.9, 12.1, 6.09, and 17.2~MHz, respectively.
+
+The slowest of the four functions is ``mass of pairs.'' Unlike the first two functions, this involves a doubly nested loop over muons to find distinct pairs, as well as a much more complex formula. The fourth function has the same structure without the complex formula, and it is as fast as the single loops. Upon further investigation, we found that the trigonometric and hyperbolic cosines account for the majority of the time spent in this function.
+
+The factor that the ROOT tests and PLUR test had in common is that they both extracted data from ROOT files and used part of the ROOT framework to read them. PLUR can operate on any arrays, so we performed another test in which we extracted all the data as Numpy arrays and read them from SSD disk or memory into the transformed Python code. These results are presented in Figure~\ref{physical-media} as ``raw SSD disk'' and ``raw memory.'' The ``PLUR full dataset'' measurements are redrawn in this plot to clarify the change in scale.
 
 \begin{figure}[!t]
 \centering
 \includegraphics[width=\linewidth]{physical-media.pdf}
-\caption{\ldots and Things}
+\caption{Event processing rates for the same four analysis functions, but only for PLUR workflows. Colors represent data sources: full ROOT dataset, raw Numpy files on SSD disk, and Numpy arrays in memory.}
 \label{physical-media}
 \end{figure}
 
+When the data are in memory, we see only the calculation cost with no I/O. The effect of the slow mass calculation is dramatic: ``mass of pairs'' runs at 12.8~MHz while ``p$_{\mbox{\scriptsize T}}$ sum of pairs'' runs at 56.2~MHz. Reading from this SSD disk and performing the calculation is 1.6--3.3 times slower than just performing the calculation.
 
-
+This is relevant because the HEPQuery system is being designed with a two-layer cache: frequently accessed columns will stay in memory, less frequently accessed columns will be paged to an SSD disk like this one, and infrequent or first-time requests will be extracted from ROOT files using BulkIO.
 
 \section{Conclusions}
 
 We have demonstrated that it is possible to transform code to meet a data format, rather than deserializing data to fit the code's expectations, as long as JIT compilation is available. We have also demonstrated that, once transformed and compiled, a Python analysis function outperforms the same function written in idiomatic C++.
 
-On the surface, this is almost unthinkable--- C++ is supposed to be much faster than an abstract language like Python--- that's why HEP data analysts go to great effort to port their Pythonic explorations into rigid C++. However, our code transformation and Numba's bytecode compilation have eliminated Python's disadvantages and given it an advantage not shared by the idiomatic C++, skipping object deserialization. Now procedural code is one step closer to behaving like a database query.
+On the surface, this is almost unthinkable--- C++ is supposed to be much faster than an abstract language like Python--- that's why HEP data analysts go to great effort to port their Pythonic explorations into C++. However, our code transformation and Numba's bytecode compilation have eliminated Python's disadvantages and given it an advantage not shared by the idiomatic C++, skipping object deserialization. Now procedural code is one step closer to behaving like a database query.
 
 In HEP, we plan to use this tool as part of a database-like query server, delivering analysis results in response to queries written in Python. The PLUR data representation gives us the ability to represent large Lists of HEP events, possibly with deeply nested hierarchies and pointer cross-references, as well as random access non-event data used to process these events. Possible uses include lookup tables, calibration constants, boosted decision trees and neural nets.
 
-The use of columns for data granularity, rather than files that contain columns, opens up possibilities for better efficiency in data storage. It is fairly common for a HEP dataset to have several versions as quantities derived from the raw measurements improve. Currently, each new version requires as much disk space as the previous, which is wasteful if only a few attributes are improved. With column granularity, a new dataset can be defined using some new and some old columns, a good example of the structural sharing used in version control systems like git. Additionally, analysts would be more free to experiment with different event selections if each is just a single column that points to a shared set of publicly accessible events, rather than a copy of a subset of rows.
+The use of columns for data granularity, rather than files that contain columns, opens up possibilities for better efficiency in data storage. It is fairly common for a HEP dataset to have several versions as quantities derived from the raw measurements improve. Currently, each new version requires as much disk space as the previous, which is wasteful if only a few attributes change. With column granularity, a new dataset can be defined using some new and some old columns, a good example of the structural sharing used in version control systems like git. Additionally, analysts would be more free to experiment with different event selections if each is just a single column that points to a shared set of publicly accessible events, rather than a copy of a subset of rows.
 
 But perhaps most importantly, the usefulness of this technique is not limited to HEP. The need for complex loop dependencies can hardly be HEP-specific. Although many industries and fields of academia may find their needs mostly met by SQL-like analysis, how much is unexplored simply because the tools are not convenient?
 
@@ -1064,7 +1080,7 @@ It is our wish that this technique finds application in many different fields, j
 
 \section*{Acknowledgment}
 
-Thanks to\ldots?
+This material is based upon work supported by the National Science Foundation under Grant No. 1450377 and 1450323.
 
 \bibliographystyle{IEEEtran}
 \bibliography{IEEEabrv,mybibliography}

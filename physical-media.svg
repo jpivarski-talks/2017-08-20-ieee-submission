@@ -24,7 +24,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -39,17 +39,18 @@
      guidetolerance="10"
      inkscape:pageopacity="0"
      inkscape:pageshadow="2"
-     inkscape:window-width="1914"
+     inkscape:window-width="1263"
      inkscape:window-height="1027"
      id="namedview4015"
      showgrid="false"
-     inkscape:zoom="1.3062795"
-     inkscape:cx="487.89541"
-     inkscape:cy="231.85204"
+     inkscape:zoom="0.92367909"
+     inkscape:cx="369.3469"
+     inkscape:cy="355.70737"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="0"
-     inkscape:current-layer="svg4013" />
+     inkscape:current-layer="svg4013"
+     inkscape:object-nodes="true" />
   <image
      width="564"
      height="511"
@@ -233,11 +234,11 @@
      y="374.3356" />
   <rect
      y="118.89642"
-     x="188.1427"
+     x="190.35703"
      height="337.09167"
-     width="19.47254"
+     width="17.258209"
      id="rect3857"
-     style="opacity:1;color:#000000;fill:#2293dd;fill-opacity:1;stroke:none;stroke-width:2;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate" />
+     style="color:#000000;fill:#2293dd;fill-opacity:1;stroke:none;stroke-width:2;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate" />
   <rect
      style="opacity:1;color:#000000;fill:#d800d8;fill-opacity:1;stroke:none;stroke-width:2;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
      id="rect3859"
