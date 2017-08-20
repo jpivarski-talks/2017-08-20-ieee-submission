@@ -420,7 +420,7 @@ We will also present performance comparisons between transformed code and conven
 \end{abstract}
 
 \begin{IEEEkeywords}
-Big data applications; Data structures; Automatic programming; Data analysis; Scientific computing; High energy physics instrumentation computing
+Big data applications; Automatic programming; Data analysis; Scientific computing; High energy physics instrumentation computing
 
 \end{IEEEkeywords}
 
@@ -613,7 +613,7 @@ ROOT\cite{root}, the HEP analysis framework, was first to store hierarchical dat
 
 JIT compilation is central to machine learning tools like H2O\cite{h2o} and Theano\cite{theano}, Julia\cite{julia}, a scientific programming language, as well as ROOT. To our knowledge, however, none of these manipulate the user's code to match the structure of columnar data.
 
-In this paper, we propose a technique to transform user code to more quickly access columnar data in memory. This technique is inspired by similar methods used on SQL, but SQL tightly controls all loops over data, making the transformation easier. We find that it can be performed on general user code if an Abstract Syntax Tree (AST) with type information is provided, or in conjunction with a type-inference pass over an untyped AST. The user code does not need to walk through the data in order, though it would benefit from fewer cache misses if it is sequential with a regular stride, just like any procedural program.
+In this paper, we propose a technique to transform user code to more quickly access columnar data in memory. This technique is inspired by similar methods used on SQL, but SQL tightly controls all loops over data, making the transformation easier. We find that it can be performed on general user code if an Abstract Syntax Tree (AST) with type information is provided, or in conjunction with a type-inference pass over an untyped AST. The user code does not need to walk through the data in order, though it would benefit from fewer cache misses if it is sequential with a regular stride, just like any low-level procedural program.
 
 In fact, code transformation could be viewed as a general alternative to object deserialization: when faced with user code that expects objects but the data are in another form, one could either transform the data to fit the code's expectations (deserialization) or transform the code to fit the data. Deserialization is the more common choice, and the only practical one for complex data formats, but code transformation can be much faster. When manipulating code, the data format is only interpreted once at compile-time. When manipulating data, the format is interpreted once per object, in addition to extra memory allocations and copying.
 
@@ -732,10 +732,10 @@ Only one index is required because:
 \item a Primitive value is located at one index in its array;
 \item a List's length can be computed from one index \mbox{($a[i_a + 1] - a[i_a]$)} and all of its contents are derived from the value of its offset array at that index;
 \item a Union is specified by a tag from its tag array and an offset from its offset array, which occur at the same index. All of the contents are derived from the offset;
-\item a Record is just a bundle of fields with no structure array. However, the contents of all fields in one Record start at the same index.
+\item a Record is just a bundle of fields with no structure array. However, the contents of all fields in a Record object start at the same index.
 \end{itemize}
 
-Therefore, any function that references Primitive, List, Union, and Record objects, no matter how complicated, can be replaced with a function that references integer indices. We can shape the code to match the data format, rather than shaping the data to match the object-oriented vocabulary of the code.
+Therefore, any function that operates on Primitive, List, Union, and Record objects, no matter how complicated, can be replaced with a function that operates on integer indices. We can shape the code to match the data format, rather than shaping the data to match the object-oriented vocabulary of the code.
 
 To see this as an alternative to deserialization, consider a scenario in which all arrays are in a binary file on disk that has been memory-mapped to look like an array. When the transformed code accesses a structured object, it is actually reading values from disk. No additional representation of the data is created; the new function knows what to do from the raw byte values and proceeds as the old function would have with objects. We have skipped deserialization.
 
@@ -817,7 +817,7 @@ A function may return PLUR type; the transformed version is either a Primitive o
 \end{center}
 (applied without transforming the argument {\tt x}, or by reverse-engineering an applied transformation).
 
-{\bf isinstance}: (check type) must return true if the argument has a given type, false otherwise. Since references to non-Primitive PLUR types have all been replaced with integer indices, a naive application of the {\tt isinstance} function would yield true for integers, contrary to a user's expectation.
+{\bf isinstance}: (check type) must return true if the argument has a given type, false otherwise. Since references to non-Primitive PLUR types have all been replaced with integer indices, a naive application of the {\tt isinstance} function would say that they are all integers, contrary to a user's expectation.
 
 The type or types to check must be known as literal names, not computed references, during the transformation sweep. If the argument to check has List or Record type, the whole expression should be replaced with true or false depending on whether the desired types are in the set of types to check. If it is a Union, it must be replaced with a tag check.
 
@@ -835,7 +835,7 @@ Since we are performing type-inference anyway, we could track intervals of valid
 
 \subsubsection{Pythonic Indices}
 
-Negative index handling in Python would be another flourish, which only slightly complicates the above.
+Negative index handling in Python would be another flourish, which complicates the above.
 
 \subsubsection{Fixed-size Arrays and Matrices}
 
@@ -857,7 +857,7 @@ More generally than Python's tuple-unpacking, your target language may feature p
 
 \subsubsection{Equality and Order}
 
-PLUR objects have a natural definition for value-based equality, so you may want to support the {\tt ==} operator as a recursive object comparison. Reference-based equality (``{\tt is}'' in Python) is even easier: just verify that the indices are equal (in Python, replace ``{\tt ==}'' with ``{\tt is}'').
+PLUR objects have a natural definition for value-based equality, so you may want to support the {\tt ==} operator as a recursive object comparison. Reference-based equality (``{\tt is}'' in Python) is even easier: just verify that the indices are equal (in Python, replace ``{\tt is}'' with ``{\tt ==}'').
 
 For identical types, there may be a natural ordering as well: Python defines an ordering on structures like Lists and Records. You can similarly support inequality operators and the ``{\tt sorted}'' function.
 
@@ -1018,13 +1018,13 @@ The second, ``eta of best by p$_{\mbox{\scriptsize T}}$,'' is an extension of th
 
 In the listing, note that {\tt best}, which is a muon object, is initialized as $-1$ in Python and {\tt nullptr} in C++. The current implementation of the code transformer is missing a concept of ``undefined variable.'' It is also missing a thorough check on pre-transformation data types, so it doesn't complain about a variable being $-1$ in some cases and a Record object in others. Post-transformation, it is an array index, so $-1$ is allowed and doesn't correspond to any real objects. This is a leaky abstraction and will be corrected in future versions, but convenient for performance testing now.
 
-The third function, ``mass of pairs,'' would require a full outer join in SQL but is a nested for loop in Python and C++, carefully indexed to avoid duplication. This kind of loop is such a common case that a HEP toolbox ought to have a built-in generator for it. The formula for {\tt mass} is complex, but it is one of the most common calculations in HEP.
+The third function, ``mass of pairs,'' would require a full outer join in SQL but is a nested for loop in Python and C++, carefully indexed to avoid duplication. This kind of ``unique pairs'' loop is very common (often with a selection, e.g.\ requiring opposite-sign charges), and the {\tt mass} formula is one of the most frequently executed in HEP.
 
-The fourth, ``p$_{\mbox{\scriptsize T}}$ sum of pairs,'' is a diagnostic of the third. As we will show below, the mass calculation is the slowest of the sample functions, and it was unclear whether the nested indexing was responsible or the complex formula. This function has the same nesting structure but a simpler formula (which is occasionally useful in HEP).
+The fourth, ``p$_{\mbox{\scriptsize T}}$ sum of pairs,'' is a diagnostic of the third. As we will show below, the mass calculation is the slowest of the sample functions, and it was unclear whether the nested indexing was responsible or the complex formula. This function has the same nesting structure but a simpler formula (one that is occasionally useful in HEP).
 
 We ran each analysis function on a 5.4 million event dataset of simulated Drell-Yan collisions (a realistic physics sample, one of about a dozen that might be involved in a real HEP analysis). The tests were performed on an {\tt i2.xlarge} instance on Amazon Web Services, which features a large, fast SSD (hundreds of MB/second, not a bottleneck in our tests).
 
-Both tests, Python and C++, used ROOT to read the same data files. However, the Python test used the BulkIO feature to extract and decompress columnar array data without constructing event objects. The C++ code used the conventional interface, which further deserializes the columnar arrays as C++ objects.
+Both tests, Python and C++, used ROOT to read the same data files. However, the Python test used the BulkIO feature to extract columnar array data without constructing event objects. The C++ code used the conventional interface, which further deserializes the columnar arrays as C++ objects.
 
 One thing that ROOT's conventional interface does not do (but in general a framework might) is allocate memory for the event and muon objects during the event loop. Memory allocation recognized as a performance killer early in ROOT's development, so ROOT's default is to preallocate a buffer of 1000 muons and overwrite them at the start of each event, reallocating the buffer if necessary. (This never happened in our sample; the maximum number of muons was 36, which is far above the mean of 1--2.)
 
@@ -1032,7 +1032,7 @@ Also, to avoid decompression or physical access being a dominant contributor to 
 
 Both tests were single-threaded and had plenty of working space memory.
 
-The results of the study are shown in Figure~\ref{root-and-plur}. The shorthand ``ROOT'' signifies a conventional ROOT workflow, using C++ user code, and ``PLUR'' is our workflow using the BulkIO interface in ROOT to expose columnar data as arrays and then run code-transformed Python code on those arrays.
+The results of the study are shown in Figure~\ref{root-and-plur}. The shorthand ``ROOT'' signifies a conventional ROOT workflow, using C++ user code, and ``PLUR'' is our workflow using the BulkIO interface in ROOT to expose columnar data as arrays and then run transformed Python code on those arrays.
 
 \begin{figure}[!t]
 \centering
@@ -1047,11 +1047,11 @@ The four colors signify variants on these workflows. ``ROOT full dataset'' means
 
 ``ROOT slim dataset'' performs the same selective read on a specially prepared dataset and object definition that has only 3 fields: {\tt pt}, {\tt eta}, and {\tt phi}. We now see different rates for the four functions: 6.68, 5.96, 3.56, and 6.34~MHz.
 
-``PLUR full dataset'' is the only test in this batch that uses transformed Python code. It accesses the full dataset (slim dataset yields similar results) and is unaffected by deserialization because the transformed function recognizes the relevant parts of the data arrays on the fly. The four functions are processed at 17.9, 12.1, 6.09, and 17.2~MHz, respectively, considerably faster than the C++.
+``PLUR full dataset'' is the only test in this batch that uses transformed Python code. It accesses the full dataset; the slim dataset yields similar results because this method is unconcerned with unused columns. The four functions are processed at 17.9, 12.1, 6.09, and 17.2~MHz, respectively, considerably faster than the C++.
 
-The slowest of the four functions is ``mass of pairs.'' Unlike the first two functions, this involves a doubly nested loop over muons to find distinct pairs, as well as a much more complex formula. The fourth function has the same structure without the complex formula, and it is as fast as the single loops. Upon further investigation, we found that the trigonometric and hyperbolic cosines account for the majority of the time spent in this function.
+The slowest of the four functions is ``mass of pairs.'' Unlike the first two functions, this involves a doubly nested loop over muons to find distinct pairs, as well as a much more complex formula. The fourth function has the same loop structure without the complex formula, and it is as fast as the single loops. Upon further investigation, we found that the trigonometric and hyperbolic cosines account for the majority of the time spent in this function.
 
-The factor that the ROOT tests and PLUR test had in common is that they both extracted data from ROOT files and used part of the ROOT framework to read them. PLUR can operate on any arrays, so we performed another test in which we extracted all the data as Numpy arrays and read them from SSD disk or memory into the transformed Python code. These results are presented in Figure~\ref{physical-media} as ``raw SSD disk'' and ``raw memory.'' The ``PLUR full dataset'' measurements are redrawn in this plot to clarify the change in scale.
+The factor that the ROOT tests and PLUR test had in common is that they both extracted data from ROOT files and used part of the ROOT framework to read them. PLUR can operate on any arrays, regardless of whether they came from ROOT, so we performed another test in which we extracted all the data as Numpy arrays and read them from SSD disk or memory into the transformed Python code. These results are presented in Figure~\ref{physical-media} as ``raw SSD disk'' and ``raw memory.'' The ``PLUR full dataset'' measurements are redrawn in this plot to clarify the change in scale.
 
 \begin{figure}[!t]
 \centering
@@ -1068,19 +1068,19 @@ This is relevant because the HEPQuery system is being designed with a two-layer 
 
 We have demonstrated that it is possible to transform code to meet a data format, rather than deserializing data to fit the code's expectations, as long as JIT compilation is available. We have also demonstrated that, once transformed and compiled, a Python analysis function outperforms the same function written in idiomatic C++.
 
-On the surface, this is almost unthinkable--- C++ is supposed to be much faster than an abstract language like Python--- that's why HEP data analysts go to great effort to port their Pythonic explorations into C++. However, our code transformation and Numba's bytecode compilation have eliminated Python's disadvantages and given it an advantage not shared by the idiomatic C++, skipping object deserialization. Procedural code is one step closer to behaving like a database query.
+On the surface, this is almost unthinkable--- C++ is supposed to be much faster than an abstract language like Python--- that's why HEP data analysts go to great effort to port their Pythonic explorations into C++. However, our code transformation and Numba's bytecode compilation have eliminated Python's disadvantages and given it an advantage not shared by the idiomatic C++, skipping object deserialization. This procedural code is one step closer to behaving like a database query.
 
-In HEP, we plan to use this tool as part of a database-like query server, delivering analysis results in response to queries written in Python. The PLUR data representation gives us the ability to represent large Lists of HEP events, possibly with deeply nested hierarchies and pointer cross-references, as well as random access non-event data used to process these events. Possible uses include lookup tables, calibration constants, boosted decision trees and neural nets.
+In HEP, we plan to use this tool as part of a database-like query server, delivering analysis results in response to queries written in Python. The PLUR data representation gives us the ability to represent large Lists of HEP events, possibly with deeply nested hierarchies and pointer cross-references, as well as random access to non-event data. Possible uses for non-event data include lookup tables, calibration constants, boosted decision trees and neural nets.
 
 The use of columns for data granularity, rather than files that contain columns, opens up possibilities for better efficiency in data storage. It is fairly common for a HEP dataset to undergo several revisions, in which derived quantities are progressively corrected with new knowledge. Currently, each new version requires as much disk space as the previous one, which is wasteful if only a few attributes change. With column granularity, a new dataset can be defined using some new and some old columns, like structural sharing in immutable data structures or version control systems like git. Additionally, analysts would be more free to experiment with different event selections if each is just a single column that points to a shared set of publicly accessible events, rather than a copy of a subset of rows.
 
 But perhaps most importantly, the usefulness of this technique is not limited to HEP. The need for complex loop dependencies can hardly be HEP-specific. Although many industries and fields of academia are currently using SQL or languages similar to SQL for data analysis, how much is being left unexplored because the tools are not suited for the task?
 
-It is our wish that this technique finds application in many different fields, just as the techniques of database-style analysis have inspired our work in HEP.
+It is our hope that this technique finds application in many different fields, just as the techniques of database-style analysis have inspired our work in HEP.
 
 \section*{Acknowledgment}
 
-This material is based upon work supported by the National Science Foundation under Grant No.\ 1450377 and 1450323.
+This work was supported by the National Science Foundation under Grants No.\ 1450377 and 1450323. The authors wish to thank Philippe Canal for many helpful discussions regarding ROOT file structure and access routines.
 
 \bibliographystyle{IEEEtran}
 \bibliography{IEEEabrv,mybibliography}
