@@ -367,7 +367,7 @@ Princeton, NJ, 08544\\
 pivarski@princeton.edu, peter.elmer@cern.ch}
 \and
 \IEEEauthorblockN{Brian Bockelman, Zhe Zhang}
-\IEEEauthorblockA{Department of Physics and Astronomy\\
+\IEEEauthorblockA{Computer Science and Engineering\\
 University of Nebraska-Lincoln\\
 Lincoln, NE 68588\\
 bbockelm@cse.unl.edu, zhan0915@huskers.unl.edu}
@@ -775,7 +775,7 @@ Unions immediately resolve to their specific type (unless you require the user t
 \begin{center}
 {\tt x} $\to$ {\tt t $\coloneqq$ tag[x]; if (t == 0) off[x] \ldots}
 \end{center}
-This is more difficult in languages like Python, which do not allow assignment in an expression (the symbol reference can appear anywhere in an expresssion); see our Python implementation\cite{plur} for the work-around.
+This is more difficult in languages like Python, which do not allow assignment in an expression (the symbol reference can appear anywhere in an expression); see our Python implementation\cite{plur} for the work-around.
 
 References to Record symbols do not require any transformation at all, though they are reinterpreted as indices to be passed to fields.
 
@@ -841,7 +841,7 @@ Negative index handling in Python would be another flourish, which complicates t
 
 PLUR Lists can have any length, which includes a constant length, at the expense of having redundant offset arrays. The size array for a fixed-length List is filled with identical values, which is very compressible, but must be expanded to full length for random access.
 
-It would be possible to add the concept of a fixed-length List to the type system, along with a naming convention so that this type can be encoded in array names, rather than arrays. In place of an array lookup in the transformed code, one would insert a literal multiplcation.
+It would be possible to add the concept of a fixed-length List to the type system, along with a naming convention so that this type can be encoded in array names, rather than arrays. In place of an array lookup in the transformed code, one would insert a literal multiplication.
 
 \subsubsection{Eliminating Zero-Lookups}
 
@@ -1080,7 +1080,7 @@ It is our hope that this technique finds application in many different fields, j
 
 \section*{Acknowledgment}
 
-This work was supported by the National Science Foundation under Grants No.\ 1450377 and 1450323. The authors wish to thank Philippe Canal for many helpful discussions regarding ROOT file structure and access routines.
+This work was supported by the National Science Foundation under Grants No.\ 1450377 and 1450323. The authors wish to thank Philippe Canal for his expert help in understanding the ROOT file format and ROOT I/O subsystem.
 
 \bibliographystyle{IEEEtran}
 \bibliography{IEEEabrv,mybibliography}
